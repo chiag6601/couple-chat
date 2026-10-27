@@ -172,6 +172,11 @@ header .acts{display:flex;gap:8px}
       <input type="text" id="nickInput" placeholder="輸入暱稱">
       <button class="act" id="saveNickBtn">儲存</button>
     </div>
+    <label style="font-size:12px;color:var(--sub)">聊天室名稱(雙方同步)</label>
+    <div class="row">
+      <input type="text" id="roomTitleInput" placeholder="例如:Our Space">
+      <button class="act" id="saveTitleBtn">儲存</button>
+    </div>
     <label style="font-size:12px;color:var(--sub)">聊天背景</label>
     <div id="bgPicker" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
       <div data-bg="#8fce8f" style="width:44px;height:44px;border-radius:10px;background:#8fce8f;cursor:pointer;border:2px solid #06c755"></div>
@@ -260,7 +265,6 @@ function userColor(name){ // 簡單配色
 
 
 /* ---------- 啟動:若已有工作階段則自動進聊天室 ---------- */
-applyLogo();
 (async ()=>{
   const { data: { session } } = await sb.auth.getSession();
   if(session){
@@ -305,10 +309,8 @@ async function enterChat(){
   await loadHistory();
   subscribe();
   loadCustomStickers();
-  applyBg();
-  applyLogo();
-  const nk=localStorage.getItem("nickname");
-  if(nk) $("headerTitle").textContent="💞 "+nk;
+  await loadProfiles();
+  subscribeProfiles();
 }
 
 /* ---------- 歷史訊息 ---------- */
@@ -323,13 +325,14 @@ function renderMsg(m,box,scroll=true){
   const d=document.createElement("div");
   const isMe=(m.username===me);
   d.className="m"+(isMe?" me":"");
+  const p=profilesCache[m.username]||{};
+  const displayName=p.nickname||m.username;
   const av=document.createElement("div");av.className="av";
-  const myAv=localStorage.getItem("avatarImg");
-  if(isMe&&myAv){ av.innerHTML=`<img src="${myAv}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`; }
-  else av.textContent=m.username?.[0]?.toUpperCase()||"?";
+  if(p.avatar_url){ av.innerHTML=`<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`; }
+  else av.textContent=(m.username?.[0]?.toUpperCase())||"?";
   const col=document.createElement("div");col.className="col";
   const meta=document.createElement("div");meta.className="meta";
-  meta.textContent=m.username+(isMe?" (你)":"");
+  meta.textContent=displayName+(isMe?" (你)":"");
   const bub=document.createElement("div");bub.className="bub";
   if(m.message_type==="image"&&m.image_url){
     const img=document.createElement("img");img.src=m.image_url;img.alt="圖片";bub.appendChild(img);
@@ -415,69 +418,88 @@ $("stickerFile").onchange=async e=>{
   e.target.value="";
 };
 
-/* ---------- 聊天背景 ---------- */
-function applyBg(){
-  const imgBg = localStorage.getItem("chatBgImg");
-  if(imgBg){
-    document.querySelector(".messages").style.background = `url("${imgBg}") center/cover no-repeat`;
-  } else {
-    const bg = localStorage.getItem("chatBg")||"#8fce8f";
-    document.querySelector(".messages").style.background = bg;
-  }
-  document.querySelectorAll("#bgPicker > div").forEach(d=>{
-    d.style.border = (!imgBg && d.dataset.bg===(localStorage.getItem("chatBg")||"#8fce8f")) ? "2px solid #06c755" : "2px solid transparent";
-  });
+/* ---------- 同步設定 (profiles) ---------- */
+let profilesCache={};
+async function uploadImg(file){
+  const ext=(file.name.split(".").pop()||"png").toLowerCase().replace(/[^a-z0-9]/g,"");
+  const path=`stickers/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const {error:ue}=await sb.storage.from("stickers").upload(path,file);
+  if(ue) throw ue;
+  return sb.storage.from("stickers").getPublicUrl(path).data.publicUrl;
 }
+async function saveProfile(patch){
+  await sb.from("profiles").upsert({username:me, ...patch, updated_at:new Date().toISOString()});
+}
+function applyRoomSettings(){
+  const rows=Object.values(profilesCache);
+  if(!rows.length) return;
+  // room-level: newest updated row wins
+  rows.sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));
+  const room=rows[0];
+  if(room.room_title) $("headerTitle").textContent="💞 "+room.room_title;
+  const hl=$("headerLogo");
+  if(hl) hl.innerHTML = room.logo_url ? `<img src="${room.logo_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle">` : "";
+  const lgn=document.querySelector("#login .logo");
+  if(lgn) lgn.innerHTML = room.logo_url ? `<img src="${room.logo_url}" style="width:72px;height:72px;border-radius:50%;object-fit:cover">` : "💞";
+  const msgs=document.querySelector(".messages");
+  if(room.background_url) msgs.style.background=`url("${room.background_url}") center/cover no-repeat`;
+}
+async function loadProfiles(){
+  const {data}=await sb.from("profiles").select("*");
+  profilesCache={};
+  (data||[]).forEach(r=>profilesCache[r.username]=r);
+  applyRoomSettings();
+}
+let profSub=null;
+function subscribeProfiles(){
+  if(profSub) profSub.unsubscribe();
+  profSub=sb.channel("profiles-"+me).on("postgres_changes",{event:"*",schema:"public",table:"profiles"},()=>loadProfiles()).subscribe();
+}
+// 背景色選擇(同步)
 document.querySelectorAll("#bgPicker > div").forEach(d=>{
-  d.onclick=()=>{ localStorage.removeItem("chatBgImg"); localStorage.setItem("chatBg", d.dataset.bg); applyBg(); };
+  d.onclick=async ()=>{ await saveProfile({background_url:d.dataset.bg, room_title:profilesCache[me]?.room_title}); applyRoomSettings(); };
 });
 $("bgImgBtn").onclick=()=>$("bgImgFile").click();
-$("bgImgFile").onchange=e=>{
+$("bgImgFile").onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=()=>{ localStorage.setItem("chatBgImg", r.result); applyBg(); };
-  r.readAsDataURL(f);
+  try{ const url=await uploadImg(f); await saveProfile({background_url:url}); applyRoomSettings(); }
+  catch(err){ alert("上傳失敗:"+err.message); }
   e.target.value="";
 };
-$("resetBgBtn").onclick=()=>{ localStorage.removeItem("chatBgImg"); localStorage.removeItem("chatBg"); applyBg(); };
-
-/* ---------- 自訂 LOGO ---------- */
-function applyLogo(){
-  const logo=localStorage.getItem("logoImg");
-  const img = logo ? `<img src="${logo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle">` : "";
-  const lgn=document.querySelector("#login .logo");
-  if(lgn) lgn.innerHTML = logo ? `<img src="${logo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover">` : "💞";
-  const hl=document.getElementById("headerLogo");
-  if(hl) hl.innerHTML = img;
-}
+// LOGO(同步)
 $("logoBtn").onclick=()=>$("logoFile").click();
-$("logoFile").onchange=e=>{
+$("logoFile").onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=()=>{ localStorage.setItem("logoImg", r.result); applyLogo(); };
-  r.readAsDataURL(f);
+  try{ const url=await uploadImg(f); await saveProfile({logo_url:url}); applyRoomSettings(); }
+  catch(err){ alert("上傳失敗:"+err.message); }
   e.target.value="";
 };
+// 大頭貼(個人,同步給對方看)
 $("avatarBtn").onclick=()=>$("avatarFile").click();
-$("avatarFile").onchange=e=>{
+$("avatarFile").onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=()=>{ localStorage.setItem("avatarImg", r.result); alert("大頭貼已更新,新訊息會套用"); };
-  r.readAsDataURL(f);
+  try{ const url=await uploadImg(f); await saveProfile({avatar_url:url}); await loadProfiles(); alert("大頭貼已更新"); }
+  catch(err){ alert("上傳失敗:"+err.message); }
   e.target.value="";
 };
-
-/* ---------- 暱稱 ---------- */
-function getNick(){ return localStorage.getItem("nickname") || me; }
-$("saveNickBtn").onclick=()=>{
-  const n=$("nickInput").value.trim();
-  if(!n)return;
-  localStorage.setItem("nickname", n);
-  $("headerTitle").textContent="💞 "+n;
+// 暱稱
+$("saveNickBtn").onclick=async ()=>{
+  const n=$("nickInput").value.trim(); if(!n)return;
+  await saveProfile({nickname:n}); await loadProfiles();
   alert("暱稱已儲存: "+n);
 };
-// 開啟設定時帶出目前暱稱
-$("settingsBtn").onclick=()=>{ $("nickInput").value=localStorage.getItem("nickname")||""; $("settings").classList.add("active"); };
+// 房間名稱
+$("saveTitleBtn").onclick=async ()=>{
+  const t=$("roomTitleInput").value.trim(); if(!t)return;
+  await saveProfile({room_title:t}); await loadProfiles();
+  alert("名稱已儲存: "+t);
+};
+// 開啟設定時帶出現值
+$("settingsBtn").onclick=()=>{
+  $("nickInput").value=profilesCache[me]?.nickname||"";
+  $("roomTitleInput").value=Object.values(profilesCache)[0]?.room_title||"";
+  $("settings").classList.add("active");
+};
 
 /* ---------- 圖片上傳到 Storage ---------- */
 $("imgLabel").onclick=async ()=>{const f=$("imgFile");f.onchange=null;f.click()};
