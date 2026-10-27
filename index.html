@@ -330,7 +330,7 @@ async function loadHistory(){
   const box=$("messages");box.innerHTML="";
   const {data,error}=await sb.from("messages").select("*").order("created_at",{ascending:true}).limit(200);
   if(error){console.error(error);return;}
-  data.forEach(m=>{ if(m.message_type!=="call_signal"){ seenIds.add(m.id); renderMsg(m,box,false);} });
+  data.forEach(m=>{ if(m.message_type!=="call_signal") renderMsg(m,box,false); });
   box.scrollTop=box.scrollHeight;
 }
 const seenIds=new Set();
