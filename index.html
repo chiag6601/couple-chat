@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Our Space — 情人聊天室</title>
+<style>
+:root{
+  --bg:#0f1117; --panel:#1a1d27; --panel2:#22252f; --line:#2c3140;
+  --text:#e8eaf0; --sub:#8b93a7; --accent:#ff5c8a; --accent2:#7c5cff;
+  --ok:#3ecf8e; --err:#ff5c5c; --bubble1:#2b3040; --bubble2:#ff5c8a;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+html,body{height:100%;background:var(--bg);color:var(--text)}
+#app{max-width:720px;margin:0 auto;height:100vh;display:flex;flex-direction:column}
+
+/* login */
+.screen{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.screen.active{display:flex}
+.logo{font-size:44px;margin-bottom:8px}
+.screen h1{font-size:22px;margin-bottom:4px}
+.screen p{color:var(--sub);font-size:13px;margin-bottom:24px}
+.card{width:100%;max-width:340px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}
+input[type=text],input[type=password]{width:100%;padding:12px 14px;margin-bottom:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:14px;outline:none}
+input:focus{border-color:var(--accent)}
+.btn{width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--sub);font-weight:400}
+.hint{color:var(--sub);font-size:12px;margin-top:12px;text-align:center}
+.msg{font-size:12px;margin-top:10px;min-height:16px;text-align:center}
+.msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+
+/* chat */
+#chat{display:none;flex-direction:column;height:100vh}
+#chat.active{display:flex}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+header .who{font-weight:600;font-size:15px}
+header .who small{display:block;color:var(--sub);font-weight:400;font-size:11px}
+header .acts{display:flex;gap:8px}
+.act{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;cursor:pointer}
+.act.call{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.messages{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+.m{display:flex;gap:8px;max-width:78%}
+.m .av{width:32px;height:32px;border-radius:50%;flex:none;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.m .col{flex:1}
+.m .meta{font-size:11px;color:var(--sub);margin-bottom:3px}
+.m .bub{background:var(--bubble1);padding:10px 13px;border-radius:4px 14px 14px 14px;font-size:14px;line-height:1.45;word-break:break-word}
+.m.me{align-self:flex-end;flex-direction:row-reverse}
+.m.me .bub{background:var(--bubble2);color:#fff;border-radius:14px 4px 14px 14px}
+.m.me .av{background:linear-gradient(135deg,var(--accent),#ff9a5c)}
+.m img{max-width:220px;max-height:220px;border-radius:12px;display:block}
+.m .time{font-size:10px;color:var(--sub);margin-top:4px;text-align:right}
+.composer{display:flex;gap:8px;padding:12px 14px;background:var(--panel);border-top:1px solid var(--line);position:relative}
+.composer input[type=text]{flex:1;margin:0;background:var(--panel2);padding:11px 14px;border-radius:99px;border:1px solid var(--line);font-size:14px;color:var(--text)}
+.send,.sticker{width:44px;height:44px;flex:none;border-radius:50%;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.sticker{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.send{background:var(--accent);color:#fff}
+.sticker-pad{position:absolute;bottom:64px;right:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:none;gap:8px;flex-wrap:wrap;width:220px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.sticker-pad.open{display:flex}
+.sticker-pad .st{font-size:30px;cursor:pointer;padding:2px;border-radius:8px;transition:transform .1s}
+.sticker-pad .st:hover{transform:scale(1.25);background:var(--panel2)}
+
+/* call overlay */
+#call{position:fixed;inset:0;background:rgba(15,17,23,.97);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:50;padding:24px}
+#call.active{display:flex}
+#call .peer{width:280px;height:280px;border-radius:20px;background:#111;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+#call .peer video{width:100%;height:100%;object-fit:cover}
+#call .peer .initials{font-size:64px;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--accent));width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+#call .cname{font-size:18px;font-weight:600;margin-bottom:4px}
+#call .cstatus{color:var(--sub);font-size:13px;margin-bottom:28px}
+.callbtns{display:flex;gap:16px}
+.cb{width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center}
+.cb.mic{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.cb.mic.off{color:var(--err)}
+.cb.end{background:var(--err);color:#fff}
+
+/* settings */
+#settings .row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+#settings .row label{flex:1;font-size:13px;color:var(--sub)}
+#settings .row input{flex:2;margin:0}
+.spin{border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;width:22px;height:22px;animation:sp 1s linear infinite;margin:20px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ============ LOGIN ============ -->
+<div id="login" class="screen active">
+  <div class="logo">💞</div>
+  <h1>Our Space</h1>
+  <p>你的專屬空間</p>
+  <div class="card">
+    <input type="text" id="email" placeholder="帳號(如 chiag455371)" autocomplete="username">
+    <input type="password" id="password" placeholder="密碼" autocomplete="current-password">
+    <button class="btn" id="loginBtn">登入</button>
+    <div class="msg" id="loginMsg"></div>
+    <div class="hint">帳號:chiag455371 / kiki0124 ・ 初始密碼 0000</div>
+  </div>
+</div>
+
+<!-- ============ CHAT ============ -->
+<div id="chat">
+  <header>
+    <div class="who">💞 Our Space <small id="youName">…</small></div>
+    <div class="acts">
+      <button class="act call" id="callBtn">📞 通話</button>
+      <button class="act" id="settingsBtn">⚙</button>
+      <button class="act" id="logoutBtn">離開</button>
+    </div>
+  </header>
+  <div class="messages" id="messages"></div>
+  <div class="sticker-pad" id="stickerPad">
+    <div class="st" data-s="❤️">❤️</div><div class="st" data-s="😘">😘</div><div class="st" data-s="🥰">🥰</div>
+    <div class="st" data-s="😭">😭</div><div class="st" data-s="😂">😂</div><div class="st" data-s="🌹">🌹</div>
+    <div class="st" data-s="🔥">🔥</div><div class="st" data-s="👑">👑</div><div class="st" data-s="🌙">🌙</div><div class="st" data-s="☀️">☀️</div>
+  </div>
+  <div class="composer">
+    <button class="sticker" id="stickerBtn" title="貼圖">😀</button>
+    <input type="text" id="txt" placeholder="輸入訊息…" maxlength="500">
+    <label class="send" id="imgLabel" title="貼圖">📷<input type="file" id="imgFile" accept="image/*" hidden></label>
+    <button class="send" id="sendBtn">➤</button>
+  </div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div id="settings" class="screen">
+  <div class="card">
+    <h1 style="font-size:18px">⚙ 設定</h1>
+    <div class="row" style="margin-top:18px">
+      <label>目前帳號</label><span id="sEmail" style="font-size:13px"></span>
+    </div>
+    <label style="font-size:12px;color:var(--sub)">變更密碼</label>
+    <input type="password" id="oldPass" placeholder="舊密碼">
+    <input type="password" id="newPass" placeholder="新密碼(至少 8 碼)">
+    <button class="btn" id="changePassBtn">變更密碼</button>
+    <div class="msg" id="passMsg"></div>
+  </div>
+  <button class="act" style="margin-top:18px" id="backBtn">← 回聊天室</button>
+</div>
+
+<!-- ============ CALL ============ -->
+<div id="call">
+  <div class="peer" id="peerVideo"><div class="initials" id="peerInitials">💞</div></div>
+  <div class="cname">kiki</div>
+  <div class="cstatus" id="callStatus">連線中…</div>
+  <div class="spin" id="callSpin"></div>
+  <div class="callbtns">
+    <button class="cb mic" id="micBtn">🎙</button>
+    <button class="cb end" id="endCallBtn">✕</button>
+  </div>
+</div>
+
+</div>
+
+<script type="module">
+/* ================= 設定區(把 key 填這裡)================= */
+const SUPABASE_URL  = "https://xwhbhdfjsyybeoqondpr.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3aGJoZGZqc3l5YmVvcW9uZHByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMDcxMTcsImV4cCI6MjEwODU4MzExN30.JMlek3GS22Ci7sI395eVLxO9dkfbD4wYcitQC6iMTss";
+const LIVEKIT_URL   = "wss://mess-h6ykmswj.livekit.cloud";
+const LIVEKIT_KEY   = "APIyJBKtmh668T4";
+const LIVEKIT_ROOM  = "couple-chat";                        // 房間名(兩端要一樣)
+/* ============================================================ */
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { LiveKitRoom, AudioVideoTrackPublication, RoomEvent, Track } from "https://esm.sh/livekit-client@2";
+
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+const $ = id => document.getElementById(id);
+let me = null, livekitRoom = null, sub = null, muted = false;
+
+/* ---------- 工具 ---------- */
+const ts = d => new Date(d).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+function userColor(name){ // 簡單配色
+  const c=['#ff5c8a','#7c5cff','#3ecf8e','#ffa53e','#5cc8ff'];
+  let h=0;for(const ch of name)h=(h*31+ch.charCodeAt(0))|0;
+  return c[Math.abs(h)%c.length];
+}
+
+/* ---------- 登入 ---------- */
+$("loginBtn").onclick = async ()=>{
+  const email=$("email").value.trim(), pass=$("password").value;
+  if(!email||!pass)return;
+  $("loginMsg").textContent="登入中…";$("loginMsg").className="msg";
+  const {data,error}=await sb.auth.signInWithPassword({email, password:pass});
+  if(error){$("loginMsg").textContent="登入失敗:"+error.message;$("loginMsg").className="msg err";return;}
+  me=data.user;
+  enterChat();
+};
+$("password").onkeydown=e=>{if(e.key==="Enter")$("loginBtn").click()};
+// 输入账号后自动补全常见邮箱后缀(方便情侣输入纯账号名)
+$("email").addEventListener("blur",()=>{
+  let v=$("email").value.trim();
+  if(v && !v.includes("@")){
+    const map={"chiag455371":"chiag455371@gmail.com","boa750124":"boa750124@gmail.com"};
+    if(map[v]) $("email").value=map[v];
+  }
+});
+
+async function enterChat(){
+  $("login").classList.remove("active");
+  $("chat").classList.add("active");
+  me=$("email").value.trim()||me.email;
+  $("youName").textContent="@"+me;
+  $("sEmail").textContent=me;
+  await loadHistory();
+  subscribe();
+}
+
+/* ---------- 歷史訊息 ---------- */
+async function loadHistory(){
+  const box=$("messages");box.innerHTML="";
+  const {data,error}=await sb.from("messages").select("*").order("created_at",{ascending:true}).limit(200);
+  if(error){console.error(error);return;}
+  data.forEach(m=>renderMsg(m,box,false));
+  box.scrollTop=box.scrollHeight;
+}
+function renderMsg(m,box,scroll=true){
+  const d=document.createElement("div");
+  const isMe=(m.username===me);
+  d.className="m"+(isMe?" me":"");
+  const av=document.createElement("div");av.className="av";av.textContent=m.username?.[0]?.toUpperCase()||"?";
+  const col=document.createElement("div");col.className="col";
+  const meta=document.createElement("div");meta.className="meta";
+  meta.textContent=m.username+(isMe?" (你)":"");
+  const bub=document.createElement("div");bub.className="bub";
+  if(m.message_type==="image"&&m.image_url){
+    const img=document.createElement("img");img.src=m.image_url;img.alt="圖片";bub.appendChild(img);
+  }else{
+    bub.textContent=m.content||"";
+  }
+  const t=document.createElement("div");t.className="time";t.textContent=ts(m.created_at);
+  col.append(meta,bub,t);d.append(av,col);box.appendChild(d);
+  if(scroll)box.scrollTop=box.scrollHeight;
+}
+
+/* ---------- 即時訂閱 ---------- */
+function subscribe(){
+  sub?.close();
+  const q=sb.from("messages").select("*",{realtime:{event:"INSERT"}})
+     .order("created_at",{ascending:true});
+  sb.channel("couple").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},
+    (payload)=>{const m=payload.new;renderMsg(m,$("messages"));}
+  ).subscribe();
+}
+
+/* ---------- 發訊息 ---------- */
+async function sendText(){
+  const c=$("txt").value.trim();if(!c)return;
+  const {error}=await sb.from("messages").insert({username:me,content:c,message_type:"text"});
+  if(error)alert("發送失敗:"+error.message);else $("txt").value="";
+}
+$("sendBtn").onclick=sendText;
+$("txt").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey)sendText()};
+
+/* ---------- 貼圖(emoji) ---------- */
+$("stickerBtn").onclick=()=>$("stickerPad").classList.toggle("open");
+document.querySelectorAll(".sticker-pad .st").forEach(el=>{
+  el.onclick=async ()=>{
+    await sb.from("messages").insert({username:me,content:el.dataset.s,message_type:"sticker"});
+    $("stickerPad").classList.remove("open");
+  };
+});
+
+/* ---------- 圖片上傳到 Storage ---------- */
+$("imgLabel").onclick=async ()=>{const f=$("imgFile");f.onchange=null;f.click()};
+$("imgFile").onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;
+  const path=`stickers/${me}-${Date.now()}-${file.name}`;
+  const {error:ue}=await sb.storage.from("stickers").upload(path,file);
+  if(ue){alert("上傳失敗:"+ue.message);return;}
+  const {data:{publicUrl}}=sb.storage.from("stickers").getPublicUrl(path);
+  const {error:ie}=await sb.from("messages").insert({username:me,content:file.name,message_type:"image",image_url:publicUrl});
+  if(ie)alert("貼圖失敗:"+ie.message);
+  e.target.value="";
+};
+
+/* ---------- LiveKit 通話 ---------- */
+// 通話流程:
+// 1. 前端调 Supabase Edge Function "livekit-token" 拿 JWT
+// 2. 用 JWT 连 LiveKit
+// 3. 双方同房间名(couple-chat)互通
+$("callBtn").onclick=async ()=>{
+  try{
+    $("call").classList.add("active");
+    $("callStatus").textContent="簽發通話凭证中…";$("callSpin").style.display="";
+    const {data,error}=await sb.functions.invoke("livekit-token",{});
+    if(error||!data)throw new Error("livekit-token Edge Function 未部署或失败: "+(error?.message||""));
+    const {token,url}=data;
+    livekitRoom=new LiveKitRoom();
+    livekitRoom.on(RoomEvent.ParticipantConnected,p=>{
+      $("callStatus").textContent="通話中 "+p.identity;
+      p.videoTracks.forEach(t=>attachTrack(t));
+      p.audioTracks.forEach(t=>attachTrack(t));
+    });
+    livekitRoom.on(RoomEvent.TrackSubscribed,(track,_,p)=>attachTrack(track,p));
+    livekitRoom.on(RoomEvent.Disconnected,()=>{
+      $("callStatus").textContent="已掛斷";
+      setTimeout(()=>$("call").classList.remove("active"),1500);
+    });
+    await livekitRoom.connect(url||LIVEKIT_URL,token,{audio:true,video:true});
+    // 本地视频/麦克风推流(若用户有摄像头)
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:true});
+      await livekitRoom.localParticipant?.trackPublications?.length
+        ? null
+        : (async()=>{
+            const pub=await livekitRoom.createLocalAudioTrack({source:"microphone"});
+            const vpub=await livekitRoom.createLocalVideoTrack({source:"camera"});
+            await livekitRoom.localParticipant.publishTrack(pub);
+            await livekitRoom.localParticipant.publishTrack(vpub);
+            // 本地预览(自己的视频放角落)——简化不显示
+          })();
+    }catch(e){console.warn("麦克/摄像头未授权",e);}
+    $("callSpin").style.display="none";
+    $("callStatus").textContent="通話中";
+  }catch(e){
+    $("callStatus").textContent="❌ "+e.message;
+    setTimeout(()=>$("call").classList.remove("active"),3000);
+  }
+};
+function attachTrack(track,publisher){
+  const pv=$("peerVideo");
+  if(track.kind===Track.Kind.Video){
+    pv.innerHTML="";const v=track.attach();v.id="rv";pv.appendChild(v);
+  }else if(track.kind===Track.Kind.Audio){
+    const a=track.attach();a.autoplay=true;
+  }
+}
+// 已移除 generateToken / makeEdgeToken:新流程直接用 sb.functions.invoke("livekit-token") 签 token
+$("micBtn").onclick=()=>{
+  muted=!muted;
+  livekitRoom?.localParticipant?.setMicrophoneEnabled(!muted);
+  $("micBtn").classList.toggle("off",muted);
+};
+$("endCallBtn").onclick=()=>{livekitRoom?.disconnect();livekitRoom=null;$("call").classList.remove("active");$("peerVideo").innerHTML='<div class="initials">💞</div>'};
+
+/* ---------- 改密碼 ---------- */
+$("changePassBtn").onclick=async ()=>{
+  const old=$("oldPass").value,nw=$("newPass").value;
+  if(nw.length<8){$("passMsg").textContent="新密碼至少 8 碼";$("passMsg").className="msg err";return;}
+  const {error}=await sb.auth.updateUser({password:nw});
+  if(error){$("passMsg").textContent="變更失敗:"+error.message;$("passMsg").className="msg err";return;}
+  $("passMsg").textContent="✅ 密碼已變更,下次請用新密碼";$("passMsg").className="msg ok";
+  $("oldPass").value="";$("newPass").value="";
+};
+
+/* ---------- 畫面切換 ---------- */
+$("settingsBtn").onclick=()=>$("settings").classList.add("active");
+$("backBtn").onclick=()=>$("settings").classList.remove("active");
+$("logoutBtn").onclick=async ()=>{
+  sub?.close();livekitRoom?.disconnect();
+  await sb.auth.signOut();location.reload();
+};
+
+/* 監聽 session */
+sb.auth.onAuthStateChange((_c,session)=>{if(!session)location.reload()});
+</script>
+</body>
+</html>
