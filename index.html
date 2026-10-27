@@ -194,6 +194,7 @@ $("loginBtn").onclick = async ()=>{
   me=data.user;
   enterChat();
 };
+document.title="RAN3";
 $("password").onkeydown=e=>{if(e.key==="Enter")$("loginBtn").click()};
 // 输入账号后自动补全常见邮箱后缀(方便情侣输入纯账号名)
 $("email").addEventListener("blur",()=>{
