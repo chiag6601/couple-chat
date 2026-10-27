@@ -330,9 +330,11 @@ $("imgFile").onchange=async e=>{
 
 /* ---------- LiveKit 通話 ---------- */
 function attachParticipant(participant){
-  participant.trackPublications.forEach(pub=>{
-    if(pub.subscribed && pub.track) attachTrack(pub.track);
-  });
+  try{
+    (participant?.trackPublications ?? new Map()).forEach(pub=>{
+      if(pub?.subscribed && pub.track) attachTrack(pub.track);
+    });
+  }catch(e){console.warn("attachParticipant",e);}
 }
 async function connectCall(){
   $("call").classList.add("active");
@@ -341,6 +343,7 @@ async function connectCall(){
   if(error||!data)throw new Error("livekit-token Edge Function 未部署: "+(error?.message||""));
   const {token,url}=data;
   livekitRoom=new LiveKitRoom();
+  window.__lk = livekitRoom;
   livekitRoom.on(RoomEvent.ParticipantConnected,p=>{
     $("callStatus").textContent="通話中";
     attachParticipant(p);
@@ -355,14 +358,11 @@ async function connectCall(){
     setTimeout(()=>$("call").classList.remove("active"),1500);
   });
   await livekitRoom.connect(url||LIVEKIT_URL,token,{audio:true,video:true});
-  window.__lk = livekitRoom;
-  livekitRoom.on(RoomEvent.TrackPublished,(pub,p)=>console.log("[lk] published",p.identity,pub.kind));
-  livekitRoom.on(RoomEvent.TrackSubscribed,(track,p)=>{console.log("[lk] subscribed",p.identity,track.kind);attachTrack(track);});
-  // 掛上已在房間內的對方(接聽方加入時主叫方早已在場)
-  livekitRoom.participants.forEach(attachParticipant);
+  // 掛上已在房間內的對方
+  try{ (livekitRoom.participants ?? new Map()).forEach(attachParticipant); }catch(e){console.warn("enum",e);}
   // 開麥克風與鏡頭
-  try{ await livekitRoom.localParticipant.setMicrophoneEnabled(true); }catch(e){console.warn("麥克風未授權",e);}
-  try{ await livekitRoom.localParticipant.setCameraEnabled(true); }catch(e){console.warn("鏡頭未授權",e);}
+  try{ await livekitRoom.localParticipant?.setMicrophoneEnabled(true); }catch(e){console.warn("麥克風",e);}
+  try{ await livekitRoom.localParticipant?.setCameraEnabled(true); }catch(e){console.warn("鏡頭",e);}
   $("callSpin").style.display="none";
   $("callStatus").textContent="通話中";
 }
