@@ -2,7 +2,11 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#06c755">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <title>Our Space — 情人聊天室</title>
 <style>
 :root{
@@ -60,6 +64,8 @@ header .acts{display:flex;gap:8px}
 .m.me .bub{background:var(--bubble2);color:#111;border-radius:16px 4px 16px 16px}
 .m.me .av{background:linear-gradient(135deg,#ffd54f,#ff9800)}
 .m img{max-width:230px;max-height:230px;border-radius:12px;display:block}
+.m .bub.stickerimg{background:transparent!important;box-shadow:none;padding:2px}
+.m .bub.stickerimg img{max-width:150px;max-height:150px;border-radius:14px}
 .m .time{font-size:10px;color:#4a5058;margin-top:4px}
 .m.me .time{text-align:right}
 .composer{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--line);position:relative;align-items:center}
@@ -264,6 +270,9 @@ function userColor(name){ // 簡單配色
 }
 
 
+/* ---------- PWA service worker ---------- */
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
+
 /* ---------- 啟動:若已有工作階段則自動進聊天室 ---------- */
 (async ()=>{
   const { data: { session } } = await sb.auth.getSession();
@@ -334,7 +343,11 @@ function renderMsg(m,box,scroll=true){
   const meta=document.createElement("div");meta.className="meta";
   meta.textContent=displayName+(isMe?" (你)":"");
   const bub=document.createElement("div");bub.className="bub";
-  if(m.message_type==="image"&&m.image_url){
+  if(m.message_type==="sticker"&&m.image_url){
+    // 通訊軟體貼圖格式:大圖、無氣泡底色
+    bub.classList.add("stickerimg");
+    const img=document.createElement("img");img.src=m.image_url;img.alt="貼圖";bub.appendChild(img);
+  }else if(m.message_type==="image"&&m.image_url){
     const img=document.createElement("img");img.src=m.image_url;img.alt="圖片";bub.appendChild(img);
   }else{
     bub.textContent=m.content||"";
@@ -397,8 +410,8 @@ function loadCustomStickers(){
   list.forEach(url=>{
     const im=document.createElement("img"); im.src=url; im.title="點擊發送";
     im.onclick=async ()=>{
-      renderMsg({username:me, message_type:"image", image_url:url, content:"", created_at:new Date().toISOString()}, $("messages"));
-      await sb.from("messages").insert({username:me,content:"",message_type:"image",image_url:url});
+      renderMsg({username:me, message_type:"sticker", image_url:url, content:"", created_at:new Date().toISOString()}, $("messages"));
+      await sb.from("messages").insert({username:me,content:"",message_type:"sticker",image_url:url});
       $("stickerPad").classList.remove("open");
     };
     box.appendChild(im);
