@@ -273,7 +273,7 @@ function userColor(name){ // 簡單配色
 
 
 /* ---------- PWA service worker ---------- */
-if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=4").catch(()=>{})); }
 
 /* ---------- 啟動:若已有工作階段則自動進聊天室 ---------- */
 (async ()=>{
@@ -376,12 +376,33 @@ function playNotify(){
   }catch(e){}
 }
 function notify(title, body){
-  if(Notification.permission==="granted"){
-    try{ new Notification(title, {body, icon:"./icon-192.png"}); }catch(e){}
+  if(!("Notification" in window)) return;
+  if(Notification.permission!=="granted") return;
+  try{
+    const n=new Notification(title, {body, icon:"./icon-192.png", tag:"couple-"+Date.now()});
+    n.onclick=()=>{ window.focus(); n.close(); };
+  }catch(e){
+    // 部分安卓瀏覽器必須經由 service worker 顯示
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:"./icon-192.png",tag:"couple"})).catch(()=>{});
+    }
   }
 }
 function askNotify(){
-  if("Notification" in window && Notification.permission==="default") Notification.requestPermission();
+  if(!("Notification" in window)) return;
+  if(Notification.permission==="default"){
+    Notification.requestPermission().then(p=>{ if(p!=="granted") showNotifyHint(); });
+  } else if(Notification.permission==="denied"){
+    showNotifyHint();
+  }
+}
+function showNotifyHint(){
+  if($("notifyHint")) return;
+  const d=document.createElement("div"); d.id="notifyHint";
+  d.style.cssText="position:fixed;left:10px;right:10px;bottom:10px;background:#ff6b6b;color:#fff;padding:10px 12px;border-radius:10px;font-size:13px;z-index:9999;display:flex;justify-content:space-between;align-items:center;gap:8px";
+  d.innerHTML='<span>通知權限未開，來訊不會跳通知。請到瀏覽器設定→網站權限→通知改為允許。</span><button style="background:#fff;color:#e74c3c;border:none;border-radius:6px;padding:4px 10px;cursor:pointer">知道了</button>';
+  d.querySelector("button").onclick=()=>d.remove();
+  document.body.appendChild(d);
 }
 
 /* ---------- 即時訂閱 ---------- */
@@ -406,7 +427,7 @@ function subscribe(){
         }
         renderMsg(m, $('messages'));
         playNotify();
-        if(document.hidden){
+        if(document.hidden || !window.hasFocus()){
           const who=(profilesCache[m.username]?.nickname)||m.username;
           const what = m.message_type==="image"||m.message_type==="sticker" ? "📎 傳了圖片" : (m.content||"");
           notify(who, what);
