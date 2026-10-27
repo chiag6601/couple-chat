@@ -165,6 +165,8 @@ const LIVEKIT_ROOM  = "couple-chat";                        // 房間名(兩端�
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Room as LiveKitRoom, RoomEvent, Track } from "https://esm.sh/livekit-client@2";
 
+document.title = "RAN";
+
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = id => document.getElementById(id);
 let me = null, livekitRoom = null, sub = null, muted = false;
