@@ -77,8 +77,10 @@ header .acts{display:flex;gap:8px}
 .sticker-pad.open{display:flex}
 .sticker-pad .st{font-size:30px;cursor:pointer;padding:2px;border-radius:8px;transition:transform .1s}
 .sticker-pad .st:hover{transform:scale(1.2);background:var(--panel2)}
-.sticker-pad img{width:56px;height:56px;object-fit:contain;cursor:pointer;border-radius:8px}
-.sticker-pad img:hover{background:var(--panel2)}
+.sticker-pad .stwrap{position:relative;width:56px;height:56px}
+.sticker-pad .stwrap img{width:56px;height:56px;object-fit:contain;cursor:pointer;border-radius:8px}
+.sticker-pad .stwrap img:hover{background:var(--panel2)}
+.sticker-pad .stwrap .del{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#e74c3c;color:#fff;border:none;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .sticker-pad .addst{width:56px;height:56px;border-radius:8px;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;color:var(--sub)}
 
 /* call overlay */
@@ -161,7 +163,7 @@ header .acts{display:flex;gap:8px}
   <div class="composer">
     <button class="sticker" id="stickerBtn" title="貼圖">😀</button>
     <input type="text" id="txt" placeholder="輸入訊息…" maxlength="500">
-    <label class="send" id="imgLabel" title="貼圖">📷<input type="file" id="imgFile" accept="image/*" hidden></label>
+    <label class="send" id="imgLabel" title="拍照"><input type="file" id="imgFile" accept="image/*" capture="environment" hidden></label>
     <button class="send" id="sendBtn">➤</button>
   </div>
 </div>
@@ -319,6 +321,7 @@ async function enterChat(){
   subscribe();
   loadCustomStickers();
   subscribeProfiles();
+  subscribeStickers();
   askNotify();
 }
 
@@ -433,18 +436,31 @@ document.querySelectorAll(".sticker-pad .st").forEach(el=>{
   };
 });
 
-/* ---------- 自訂貼圖 ---------- */
-function loadCustomStickers(){
-  const list = JSON.parse(localStorage.getItem("customStickers")||"[]");
+/* ---------- 自訂貼圖 (跨裝置同步) ---------- */
+let stickersCache=[];
+async function loadCustomStickers(){
+  const {data,error}=await sb.from("stickers").select("*").order("created_at",{ascending:true});
+  if(error){console.warn("sticker load",error);return;}
+  stickersCache=data||[];
   const box=$("customStickers"); box.innerHTML="";
-  list.forEach(url=>{
+  stickersCache.forEach(row=>{
+    const url=row.url;
+    const wrap=document.createElement("div"); wrap.className="stwrap";
     const im=document.createElement("img"); im.src=url; im.title="點擊發送";
     im.onclick=async ()=>{
       renderMsg({username:me, message_type:"sticker", image_url:url, content:"", created_at:new Date().toISOString()}, $("messages"));
       await sb.from("messages").insert({username:me,content:"",message_type:"sticker",image_url:url});
       $("stickerPad").classList.remove("open");
     };
-    box.appendChild(im);
+    const del=document.createElement("button"); del.className="del"; del.textContent="✕"; del.title="刪除此貼圖";
+    del.onclick=async (e)=>{
+      e.stopPropagation();
+      if(!confirm("刪除這個貼圖？"))return;
+      await sb.from("stickers").delete().eq("id",row.id);
+      loadCustomStickers();
+    };
+    wrap.appendChild(im); wrap.appendChild(del);
+    box.appendChild(wrap);
   });
 }
 $("addStickerBtn").onclick=()=>$("stickerFile").click();
@@ -455,8 +471,7 @@ $("stickerFile").onchange=async e=>{
   const {error:ue}=await sb.storage.from("stickers").upload(path,file);
   if(ue){alert("上傳失敗:"+ue.message);return;}
   const {data:{publicUrl}}=sb.storage.from("stickers").getPublicUrl(path);
-  const list=JSON.parse(localStorage.getItem("customStickers")||"[]");
-  list.push(publicUrl); localStorage.setItem("customStickers",JSON.stringify(list));
+  await sb.from("stickers").insert({url:publicUrl, created_by:me});
   loadCustomStickers();
   e.target.value="";
 };
@@ -504,6 +519,13 @@ function subscribeProfiles(){
     $("messages").innerHTML="";
     (data||[]).forEach(m=>renderMsg(m,$("messages"),false));
     $("messages").scrollTop=$("messages").scrollHeight;
+  }).subscribe();
+}
+let stickerSub=null;
+function subscribeStickers(){
+  if(stickerSub) stickerSub.unsubscribe();
+  stickerSub=sb.channel("stickers-"+me).on("postgres_changes",{event:"*",schema:"public",table:"stickers"},()=>{
+    loadCustomStickers();
   }).subscribe();
 }
 // 背景色選擇(同步)
