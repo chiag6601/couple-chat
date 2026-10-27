@@ -72,6 +72,8 @@ header .acts{display:flex;gap:8px}
 .cb{width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center}
 .cb.mic{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
 .cb.mic.off{color:var(--err)}
+.cb.vid{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.cb.vid.off{color:var(--err)}
 .cb.end{background:var(--err);color:#fff}
 .cb.ok{background:#22c55e;color:#fff}
 #incomingCall{position:fixed;inset:0;background:rgba(15,17,23,.9);display:none;align-items:center;justify-content:center;z-index:60}
@@ -154,8 +156,9 @@ header .acts{display:flex;gap:8px}
   <div class="cstatus" id="callStatus">連線中…</div>
   <div class="spin" id="callSpin"></div>
   <div class="callbtns">
-    <button class="cb mic" id="micBtn">🎙</button>
-    <button class="cb end" id="endCallBtn">✕</button>
+    <button class="cb vid" id="vidBtn" title="視訊">📹</button>
+    <button class="cb mic" id="micBtn" title="麥克風">🎙</button>
+    <button class="cb end" id="endCallBtn" title="掛斷">✕</button>
   </div>
 </div>
 
@@ -187,7 +190,7 @@ import { Room as LiveKitRoom, RoomEvent, Track } from "https://esm.sh/livekit-cl
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = id => document.getElementById(id);
-let me = null, livekitRoom = null, sub = null, muted = false;
+let me = null, livekitRoom = null, sub = null, muted = false, camOn = false, micOn = true;
 
 /* ---------- 工具 ---------- */
 const ts = d => new Date(d).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
@@ -349,6 +352,9 @@ async function connectCall(){
     attachParticipant(p);
   });
   livekitRoom.on(RoomEvent.TrackSubscribed,(track,_p)=>attachTrack(track));
+  livekitRoom.on(RoomEvent.TrackUnsubscribed,(track,_p)=>{
+    if(track.kind===Track.Kind.Video){ $("peerVideo").innerHTML='<div class="initials">💞</div>'; }
+  });
   livekitRoom.on(RoomEvent.ParticipantDisconnected,()=>{
     $("peerVideo").innerHTML='<div class="initials">💔</div>';
     $("callStatus").textContent="對方已離開";
@@ -357,12 +363,14 @@ async function connectCall(){
     $("callStatus").textContent="已掛斷";
     setTimeout(()=>$("call").classList.remove("active"),1500);
   });
-  await livekitRoom.connect(url||LIVEKIT_URL,token,{audio:true,video:true});
+  await livekitRoom.connect(url||LIVEKIT_URL,token,{audio:true,video:false});
   // 掛上已在房間內的對方
   try{ (livekitRoom.participants ?? new Map()).forEach(attachParticipant); }catch(e){console.warn("enum",e);}
-  // 開麥克風與鏡頭
+  // 預設只開麥克風,鏡頭由使用者按鈕開啟
   try{ await livekitRoom.localParticipant?.setMicrophoneEnabled(true); }catch(e){console.warn("麥克風",e);}
-  try{ await livekitRoom.localParticipant?.setCameraEnabled(true); }catch(e){console.warn("鏡頭",e);}
+  camOn = false; micOn = true;
+  $("vidBtn").classList.add("off"); $("vidBtn").textContent="📹";
+  $("micBtn").classList.remove("off"); $("micBtn").textContent="🎙";
   $("callSpin").style.display="none";
   $("callStatus").textContent="通話中";
 }
@@ -398,11 +406,22 @@ function attachTrack(track,publisher){
     const a=track.attach();a.autoplay=true;
   }
 }
-// 已移除 generateToken / makeEdgeToken:新流程直接用 sb.functions.invoke("livekit-token") 签 token
-$("micBtn").onclick=()=>{
-  muted=!muted;
-  livekitRoom?.localParticipant?.setMicrophoneEnabled(!muted);
-  $("micBtn").classList.toggle("off",muted);
+// 靜音切換
+$("micBtn").onclick=async ()=>{
+  if(!livekitRoom)return;
+  micOn=!micOn;
+  try{ await livekitRoom.localParticipant?.setMicrophoneEnabled(micOn); }catch(e){}
+  $("micBtn").classList.toggle("off",!micOn);
+  $("micBtn").textContent = micOn ? "🎙" : "🔇";
+};
+// 視訊開關
+$("vidBtn").onclick=async ()=>{
+  if(!livekitRoom)return;
+  camOn=!camOn;
+  try{ await livekitRoom.localParticipant?.setCameraEnabled(camOn); }catch(e){}
+  $("vidBtn").classList.toggle("off",!camOn);
+  $("vidBtn").textContent = camOn ? "📹" : "📹";
+  if(!camOn) $("vidBtn").textContent="🚫";
 };
 $("endCallBtn").onclick=async ()=>{
   try{ await sb.from("messages").insert({username:me,content:"hangup",message_type:"call_signal"}); }catch(_){}
