@@ -81,6 +81,12 @@ header .acts{display:flex;gap:8px}
 .cb.vid.off{color:var(--err)}
 .cb.end{background:var(--err);color:#fff}
 .cb.ok{background:#22c55e;color:#fff}
+.cb.min{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+#localPreview{position:absolute;right:20px;bottom:120px;width:120px;height:160px;border-radius:12px;overflow:hidden;border:2px solid #fff;display:none;box-shadow:0 4px 16px rgba(0,0,0,.4);z-index:5}
+#localPreview.on{display:block}
+#localPreview video{width:100%;height:100%;object-fit:cover}
+#callPill{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:8px 18px;border-radius:99px;font-size:13px;cursor:pointer;z-index:45;display:none;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+#callPill.active{display:block}
 #incomingCall{position:fixed;inset:0;background:rgba(15,17,23,.9);display:none;align-items:center;justify-content:center;z-index:60}
 #incomingCall.active{display:flex}
 #incomingCall .inc-box{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:32px;display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -180,15 +186,19 @@ header .acts{display:flex;gap:8px}
 <!-- ============ CALL ============ -->
 <div id="call">
   <div class="peer" id="peerVideo"><div class="initials" id="peerInitials">💞</div></div>
+  <div id="localPreview"></div>
   <div class="cname">kiki</div>
   <div class="cstatus" id="callStatus">連線中…</div>
   <div class="spin" id="callSpin"></div>
   <div class="callbtns">
+    <button class="cb min" id="minBtn" title="縮小">🗗</button>
     <button class="cb vid" id="vidBtn" title="視訊">📹</button>
     <button class="cb mic" id="micBtn" title="麥克風">🎙</button>
     <button class="cb end" id="endCallBtn" title="掛斷">✕</button>
   </div>
 </div>
+
+<div id="callPill">📞 通話中 · 點擊返回</div>
 
 <div id="incomingCall">
   <div class="inc-box">
@@ -319,6 +329,8 @@ function subscribe(){
             $('incomingCall').classList.remove('active');
             livekitRoom?.disconnect(); livekitRoom=null;
             $('call').classList.remove('active');
+            $('callPill').classList.remove('active');
+            $('localPreview').innerHTML=''; $('localPreview').classList.remove('on');
             $('peerVideo').innerHTML='<div class="initials">💞</div>';
           }
           return;
@@ -517,21 +529,39 @@ $("micBtn").onclick=async ()=>{
   $("micBtn").classList.toggle("off",!micOn);
   $("micBtn").textContent = micOn ? "🎙" : "🔇";
 };
-// 視訊開關
+// 視訊開關(含自己的子母畫面預覽)
 $("vidBtn").onclick=async ()=>{
   if(!livekitRoom)return;
   camOn=!camOn;
   try{ await livekitRoom.localParticipant?.setCameraEnabled(camOn); }catch(e){}
   $("vidBtn").classList.toggle("off",!camOn);
-  $("vidBtn").textContent = camOn ? "📹" : "📹";
-  if(!camOn) $("vidBtn").textContent="🚫";
+  $("vidBtn").textContent = camOn ? "📹" : "🚫";
+  // 本地預覽
+  const lp=$("localPreview");
+  if(camOn){
+    const pub=[...livekitRoom.localParticipant.trackPublications.values()].find(t=>t.kind===Track.Kind.Video);
+    if(pub&&pub.track){ lp.innerHTML=""; const v=pub.track.attach(); v.muted=true; lp.appendChild(v); lp.classList.add("on"); }
+  } else {
+    lp.innerHTML=""; lp.classList.remove("on");
+  }
+};
+// 縮小通話、回到聊天室
+$("minBtn").onclick=()=>{
+  $("call").classList.remove("active");
+  $("callPill").classList.add("active");
+};
+$("callPill").onclick=()=>{
+  $("callPill").classList.remove("active");
+  $("call").classList.add("active");
 };
 $("endCallBtn").onclick=async ()=>{
   try{ await sb.from("messages").insert({username:me,content:"hangup",message_type:"call_signal"}); }catch(_){}
   livekitRoom?.disconnect();livekitRoom=null;
   $("call").classList.remove("active");
+  $("callPill").classList.remove("active");
   $("incomingCall").classList.remove("active");
   $("peerVideo").innerHTML='<div class="initials">💞</div>';
+  $("localPreview").innerHTML=""; $("localPreview").classList.remove("on");
 };
 
 /* ---------- 改密碼 ---------- */
