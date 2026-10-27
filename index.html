@@ -306,10 +306,10 @@ async function enterChat(){
   me = email;                       // 比對用的帳號字串
   $("youName").textContent="@"+email.split("@")[0];
   $("sEmail").textContent=email;
+  await loadProfiles();
   await loadHistory();
   subscribe();
   loadCustomStickers();
-  await loadProfiles();
   subscribeProfiles();
 }
 
@@ -453,7 +453,14 @@ async function loadProfiles(){
 let profSub=null;
 function subscribeProfiles(){
   if(profSub) profSub.unsubscribe();
-  profSub=sb.channel("profiles-"+me).on("postgres_changes",{event:"*",schema:"public",table:"profiles"},()=>loadProfiles()).subscribe();
+  profSub=sb.channel("profiles-"+me).on("postgres_changes",{event:"*",schema:"public",table:"profiles"},async ()=>{
+    await loadProfiles();
+    // 重繪既有訊息以更新暱稱/頭像
+    const {data}=await sb.from("messages").select("*").order("created_at",{ascending:true});
+    $("messages").innerHTML="";
+    (data||[]).forEach(m=>renderMsg(m,$("messages"),false));
+    $("messages").scrollTop=$("messages").scrollHeight;
+  }).subscribe();
 }
 // 背景色選擇(同步)
 document.querySelectorAll("#bgPicker > div").forEach(d=>{
