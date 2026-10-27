@@ -95,7 +95,7 @@ header .acts{display:flex;gap:8px}
     <input type="password" id="password" placeholder="密碼" autocomplete="current-password">
     <button class="btn" id="loginBtn">登入</button>
     <div class="msg" id="loginMsg"></div>
-    <div class="hint">帳號:chiag455371 / boa750124 ・ 初始密碼 0000</div>
+    <div class="hint">帳號:chiag455371 / boa750124 ・ 密碼 000000</div>
   </div>
 </div>
 
@@ -163,7 +163,7 @@ const LIVEKIT_ROOM  = "couple-chat";                        // 房間名(兩端�
 /* ============================================================ */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { LiveKitRoom, AudioVideoTrackPublication, RoomEvent, Track } from "https://esm.sh/livekit-client@2";
+import { LiveKitRoom, RoomEvent, Track } from "https://esm.sh/livekit-client@2";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = id => document.getElementById(id);
@@ -179,8 +179,12 @@ function userColor(name){ // 簡單配色
 
 /* ---------- 登入 ---------- */
 $("loginBtn").onclick = async ()=>{
-  const email=$("email").value.trim(), pass=$("password").value;
+  let email=$("email").value.trim(), pass=$("password").value;
   if(!email||!pass)return;
+  if(email && !email.includes("@")){
+    const map={"chiag455371":"chiag455371@gmail.com","boa750124":"boa750124@gmail.com"};
+    if(map[email]) email=map[email];
+  }
   $("loginMsg").textContent="登入中…";$("loginMsg").className="msg";
   const {data,error}=await sb.auth.signInWithPassword({email, password:pass});
   if(error){$("loginMsg").textContent="登入失敗:"+error.message;$("loginMsg").className="msg err";return;}
@@ -353,8 +357,8 @@ $("logoutBtn").onclick=async ()=>{
   await sb.auth.signOut();location.reload();
 };
 
-/* 監聽 session */
-sb.auth.onAuthStateChange((_c,session)=>{if(!session)location.reload()});
+/* 監聽 session:只有被登出(SIGNED_OUT)時才重整,避免初始無 session 時無限 reload */
+sb.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_OUT" && !session)location.reload()});
 </script>
 </body>
 </html>
