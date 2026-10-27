@@ -177,6 +177,18 @@ function userColor(name){ // 簡單配色
   return c[Math.abs(h)%c.length];
 }
 
+
+/* ---------- 啟動:若已有工作階段則自動進聊天室 ---------- */
+(async ()=>{
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){
+    me = session.user;
+    const em = session.user.email || '';
+    $('email').value = em;
+    await enterChat();
+  }
+})();
+
 /* ---------- 登入 ---------- */
 $("loginBtn").onclick = async ()=>{
   let email=$("email").value.trim(), pass=$("password").value;
@@ -204,9 +216,10 @@ $("email").addEventListener("blur",()=>{
 async function enterChat(){
   $("login").classList.remove("active");
   $("chat").classList.add("active");
-  me=$("email").value.trim()||me.email;
-  $("youName").textContent="@"+me;
-  $("sEmail").textContent=me;
+  const email = $("email").value.trim() || (me && me.email) || "";
+  me = email;                       // 比對用的帳號字串
+  $("youName").textContent="@"+email.split("@")[0];
+  $("sEmail").textContent=email;
   await loadHistory();
   subscribe();
 }
@@ -240,19 +253,24 @@ function renderMsg(m,box,scroll=true){
 
 /* ---------- 即時訂閱 ---------- */
 function subscribe(){
-  sub?.close();
-  const q=sb.from("messages").select("*",{realtime:{event:"INSERT"}})
-     .order("created_at",{ascending:true});
-  sb.channel("couple").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},
-    (payload)=>{const m=payload.new;renderMsg(m,$("messages"));}
-  ).subscribe();
+  if(sub) sub.unsubscribe();
+  sub = sb.channel('couple-chat')
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'messages'},
+      (payload)=>{
+        const m = payload.new;
+        if(m.username === me) return;
+        renderMsg(m, $('messages'));
+      })
+    .subscribe((status)=>{ console.log('[realtime]', status); });
 }
 
 /* ---------- 發訊息 ---------- */
 async function sendText(){
   const c=$("txt").value.trim();if(!c)return;
+  $("txt").value="";
+  renderMsg({username:me, content:c, message_type:"text", created_at:new Date().toISOString()}, $("messages"));
   const {error}=await sb.from("messages").insert({username:me,content:c,message_type:"text"});
-  if(error)alert("發送失敗:"+error.message);else $("txt").value="";
+  if(error)alert("發送失敗:"+error.message);
 }
 $("sendBtn").onclick=sendText;
 $("txt").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey)sendText()};
@@ -261,6 +279,7 @@ $("txt").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey)sendText()};
 $("stickerBtn").onclick=()=>$("stickerPad").classList.toggle("open");
 document.querySelectorAll(".sticker-pad .st").forEach(el=>{
   el.onclick=async ()=>{
+    renderMsg({username:me, content:el.dataset.s, message_type:"sticker", created_at:new Date().toISOString()}, $("messages"));
     await sb.from("messages").insert({username:me,content:el.dataset.s,message_type:"sticker"});
     $("stickerPad").classList.remove("open");
   };
