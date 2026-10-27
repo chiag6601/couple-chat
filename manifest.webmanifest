@@ -1,6 +1,6 @@
 {
-  "name": "Our Space 情侶聊天室",
-  "short_name": "Our Space",
+  "name": "碳吉的窩",
+  "short_name": "碳吉的窩",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
