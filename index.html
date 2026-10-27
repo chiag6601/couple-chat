@@ -355,6 +355,9 @@ async function connectCall(){
     setTimeout(()=>$("call").classList.remove("active"),1500);
   });
   await livekitRoom.connect(url||LIVEKIT_URL,token,{audio:true,video:true});
+  window.__lk = livekitRoom;
+  livekitRoom.on(RoomEvent.TrackPublished,(pub,p)=>console.log("[lk] published",p.identity,pub.kind));
+  livekitRoom.on(RoomEvent.TrackSubscribed,(track,p)=>{console.log("[lk] subscribed",p.identity,track.kind);attachTrack(track);});
   // 掛上已在房間內的對方(接聽方加入時主叫方早已在場)
   livekitRoom.participants.forEach(attachParticipant);
   // 開麥克風與鏡頭
