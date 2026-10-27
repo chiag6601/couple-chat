@@ -319,6 +319,7 @@ async function enterChat(){
   subscribe();
   loadCustomStickers();
   subscribeProfiles();
+  askNotify();
 }
 
 /* ---------- 歷史訊息 ---------- */
@@ -356,6 +357,29 @@ function renderMsg(m,box,scroll=true){
   if(scroll)box.scrollTop=box.scrollHeight;
 }
 
+/* ---------- 提示音 + 通知 ---------- */
+let audioCtx=null;
+function playNotify(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.type="sine"; o.frequency.setValueAtTime(880, audioCtx.currentTime);
+    o.frequency.setValueAtTime(1175, audioCtx.currentTime+0.12);
+    g.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.35);
+    o.start(); o.stop(audioCtx.currentTime+0.4);
+  }catch(e){}
+}
+function notify(title, body){
+  if(Notification.permission==="granted"){
+    try{ new Notification(title, {body, icon:"./icon-192.png"}); }catch(e){}
+  }
+}
+function askNotify(){
+  if("Notification" in window && Notification.permission==="default") Notification.requestPermission();
+}
+
 /* ---------- 即時訂閱 ---------- */
 function subscribe(){
   if(sub) sub.unsubscribe();
@@ -365,7 +389,7 @@ function subscribe(){
         const m = payload.new;
         if(m.username === me) return;
         if(m.message_type === 'call_signal'){
-          if(m.content === 'ring') showIncoming(m.username);
+          if(m.content === 'ring'){ showIncoming(m.username); playNotify(); }
           else if(m.content === 'hangup' || m.content === 'reject'){
             $('incomingCall').classList.remove('active');
             livekitRoom?.disconnect(); livekitRoom=null;
@@ -377,6 +401,12 @@ function subscribe(){
           return;
         }
         renderMsg(m, $('messages'));
+        playNotify();
+        if(document.hidden){
+          const who=(profilesCache[m.username]?.nickname)||m.username;
+          const what = m.message_type==="image"||m.message_type==="sticker" ? "📎 傳了圖片" : (m.content||"");
+          notify(who, what);
+        }
       })
     .subscribe((status)=>{ console.log('[realtime]', status); });
 }
