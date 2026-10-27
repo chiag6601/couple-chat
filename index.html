@@ -696,8 +696,10 @@ $("changePassBtn").onclick=async ()=>{
 /* ---------- 畫面切換 ---------- */
 $("backBtn").onclick=()=>$("settings").classList.remove("active");
 $("logoutBtn").onclick=async ()=>{
-  sub?.close();livekitRoom?.disconnect();
-  await sb.auth.signOut();location.reload();
+  try{ sub?.close(); profSub?.close(); livekitRoom?.disconnect(); }catch(e){}
+  try{ await sb.auth.signOut(); }catch(e){}
+  localStorage.removeItem("sb-xwhbhdfjsyybeoqondpr-auth-token");
+  location.href = "./?v=out";
 };
 
 /* 監聽 session:只有被登出(SIGNED_OUT)時才重整,避免初始無 session 時無限 reload */
