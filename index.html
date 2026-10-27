@@ -330,10 +330,12 @@ async function loadHistory(){
   const box=$("messages");box.innerHTML="";
   const {data,error}=await sb.from("messages").select("*").order("created_at",{ascending:true}).limit(200);
   if(error){console.error(error);return;}
-  data.forEach(m=>{ if(m.message_type!=="call_signal") renderMsg(m,box,false); });
+  data.forEach(m=>{ if(m.message_type!=="call_signal"){ seenIds.add(m.id); renderMsg(m,box,false);} });
   box.scrollTop=box.scrollHeight;
 }
+const seenIds=new Set();
 function renderMsg(m,box,scroll=true){
+  if(m.id){ if(seenIds.has(m.id)) return; seenIds.add(m.id); }
   const d=document.createElement("div");
   const isMe=(m.username===me);
   d.className="m"+(isMe?" me":"");
@@ -412,7 +414,6 @@ function subscribe(){
     .on('postgres_changes', {event:'INSERT', schema:'public', table:'messages'},
       (payload)=>{
         const m = payload.new;
-        if(m.username === me) return;
         if(m.message_type === 'call_signal'){
           if(m.content === 'ring'){ showIncoming(m.username); playNotify(); }
           else if(m.content === 'hangup' || m.content === 'reject'){
@@ -440,9 +441,9 @@ function subscribe(){
 async function sendText(){
   const c=$("txt").value.trim();if(!c)return;
   $("txt").value="";
-  renderMsg({username:me, content:c, message_type:"text", created_at:new Date().toISOString()}, $("messages"));
-  const {error}=await sb.from("messages").insert({username:me,content:c,message_type:"text"});
-  if(error)alert("發送失敗:"+error.message);
+  const {data:rows,error}=await sb.from("messages").insert({username:me,content:c,message_type:"text"}).select("*");
+  if(error){alert("發送失敗:"+error.message);return;}
+  if(rows&&rows[0]) renderMsg(rows[0], $("messages"));
 }
 $("sendBtn").onclick=sendText;
 $("txt").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey)sendText()};
@@ -451,8 +452,8 @@ $("txt").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey)sendText()};
 $("stickerBtn").onclick=()=>$("stickerPad").classList.toggle("open");
 document.querySelectorAll(".sticker-pad .st").forEach(el=>{
   el.onclick=async ()=>{
-    renderMsg({username:me, content:el.dataset.s, message_type:"sticker", created_at:new Date().toISOString()}, $("messages"));
-    await sb.from("messages").insert({username:me,content:el.dataset.s,message_type:"sticker"});
+    const {data:rows}=await sb.from("messages").insert({username:me,content:el.dataset.s,message_type:"sticker"}).select("*");
+    if(rows&&rows[0]) renderMsg(rows[0], $("messages"));
     $("stickerPad").classList.remove("open");
   };
 });
@@ -469,8 +470,8 @@ async function loadCustomStickers(){
     const wrap=document.createElement("div"); wrap.className="stwrap";
     const im=document.createElement("img"); im.src=url; im.title="點擊發送";
     im.onclick=async ()=>{
-      renderMsg({username:me, message_type:"sticker", image_url:url, content:"", created_at:new Date().toISOString()}, $("messages"));
-      await sb.from("messages").insert({username:me,content:"",message_type:"sticker",image_url:url});
+      const {data:rows}=await sb.from("messages").insert({username:me,content:"",message_type:"sticker",image_url:url}).select("*");
+      if(rows&&rows[0]) renderMsg(rows[0], $("messages"));
       $("stickerPad").classList.remove("open");
     };
     const del=document.createElement("button"); del.className="del"; del.textContent="✕"; del.title="刪除此貼圖";
@@ -604,8 +605,9 @@ $("imgFile").onchange=async e=>{
   const {error:ue}=await sb.storage.from("stickers").upload(path,file);
   if(ue){alert("上傳失敗:"+ue.message);return;}
   const {data:{publicUrl}}=sb.storage.from("stickers").getPublicUrl(path);
-  const {error:ie}=await sb.from("messages").insert({username:me,content:file.name,message_type:"image",image_url:publicUrl});
+  const {data:rows,error:ie}=await sb.from("messages").insert({username:me,content:file.name,message_type:"image",image_url:publicUrl}).select("*");
   if(ie)alert("貼圖失敗:"+ie.message);
+  else if(rows&&rows[0]) renderMsg(rows[0], $("messages"));
   e.target.value="";
 };
 
