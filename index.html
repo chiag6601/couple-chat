@@ -126,7 +126,7 @@ header .acts{display:flex;gap:8px}
 <!-- ============ CHAT ============ -->
 <div id="chat">
   <header>
-    <div class="who">💞 Our Space <small id="youName">…</small></div>
+    <div class="who"><span id="headerLogo" style="display:inline-flex;vertical-align:middle;margin-right:6px"></span><span id="headerTitle">💞 Our Space</span><small id="youName">…</small></div>
     <div class="acts">
       <button class="act call" id="callBtn">📞 通話</button>
       <button class="act" id="settingsBtn">⚙</button>
@@ -156,6 +156,11 @@ header .acts{display:flex;gap:8px}
     <h1 style="font-size:18px">⚙ 設定 <button class="act" id="backBtn" style="float:right;padding:4px 12px">✕</button></h1>
     <div class="row" style="margin-top:18px">
       <label>目前帳號</label><span id="sEmail" style="font-size:13px"></span>
+    </div>
+    <label style="font-size:12px;color:var(--sub)">我的暱稱(對方會看到)</label>
+    <div class="row">
+      <input type="text" id="nickInput" placeholder="輸入暱稱">
+      <button class="act" id="saveNickBtn">儲存</button>
     </div>
     <label style="font-size:12px;color:var(--sub)">聊天背景</label>
     <div id="bgPicker" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
@@ -286,6 +291,9 @@ async function enterChat(){
   subscribe();
   loadCustomStickers();
   applyBg();
+  applyLogo();
+  const nk=localStorage.getItem("nickname");
+  if(nk) $("headerTitle").textContent="💞 "+nk;
 }
 
 /* ---------- 歷史訊息 ---------- */
@@ -393,7 +401,7 @@ $("stickerFile").onchange=async e=>{
 function applyBg(){
   const imgBg = localStorage.getItem("chatBgImg");
   if(imgBg){
-    document.querySelector(".messages").style.background = `url(${imgBg}) center/cover fixed`;
+    document.querySelector(".messages").style.background = `url("${imgBg}") center/cover no-repeat`;
   } else {
     const bg = localStorage.getItem("chatBg")||"#8fce8f";
     document.querySelector(".messages").style.background = bg;
@@ -418,10 +426,11 @@ $("resetBgBtn").onclick=()=>{ localStorage.removeItem("chatBgImg"); localStorage
 /* ---------- 自訂 LOGO ---------- */
 function applyLogo(){
   const logo=localStorage.getItem("logoImg");
-  if(logo){
-    const el=document.querySelector("#login .logo");
-    if(el) el.innerHTML=`<img src="${logo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover">`;
-  }
+  const img = logo ? `<img src="${logo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle">` : "";
+  const lgn=document.querySelector("#login .logo");
+  if(lgn) lgn.innerHTML = logo ? `<img src="${logo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover">` : "💞";
+  const hl=document.getElementById("headerLogo");
+  if(hl) hl.innerHTML = img;
 }
 $("logoBtn").onclick=()=>$("logoFile").click();
 $("logoFile").onchange=e=>{
@@ -431,6 +440,18 @@ $("logoFile").onchange=e=>{
   r.readAsDataURL(f);
   e.target.value="";
 };
+
+/* ---------- 暱稱 ---------- */
+function getNick(){ return localStorage.getItem("nickname") || me; }
+$("saveNickBtn").onclick=()=>{
+  const n=$("nickInput").value.trim();
+  if(!n)return;
+  localStorage.setItem("nickname", n);
+  $("headerTitle").textContent="💞 "+n;
+  alert("暱稱已儲存: "+n);
+};
+// 開啟設定時帶出目前暱稱
+$("settingsBtn").onclick=()=>{ $("nickInput").value=localStorage.getItem("nickname")||""; $("settings").classList.add("active"); };
 
 /* ---------- 圖片上傳到 Storage ---------- */
 $("imgLabel").onclick=async ()=>{const f=$("imgFile");f.onchange=null;f.click()};
@@ -575,7 +596,6 @@ $("changePassBtn").onclick=async ()=>{
 };
 
 /* ---------- 畫面切換 ---------- */
-$("settingsBtn").onclick=()=>$("settings").classList.add("active");
 $("backBtn").onclick=()=>$("settings").classList.remove("active");
 $("logoutBtn").onclick=async ()=>{
   sub?.close();livekitRoom?.disconnect();
