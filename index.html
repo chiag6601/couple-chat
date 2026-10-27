@@ -6,13 +6,14 @@
 <title>Our Space — 情人聊天室</title>
 <style>
 :root{
-  --bg:#0f1117; --panel:#1a1d27; --panel2:#22252f; --line:#2c3140;
-  --text:#e8eaf0; --sub:#8b93a7; --accent:#ff5c8a; --accent2:#7c5cff;
-  --ok:#3ecf8e; --err:#ff5c5c; --bubble1:#2b3040; --bubble2:#ff5c8a;
+  --bg:#e9ebee; --panel:#ffffff; --panel2:#f2f3f5; --line:#e2e4e8;
+  --text:#1a1a1a; --sub:#8a8f99; --accent:#06c755; --accent2:#00b8d4;
+  --ok:#22c55e; --err:#fa5151; --bubble1:#ffffff; --bubble2:#a8ff60;
+  --header:#ffffff; --chatbg:#8fce8f;
 }
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI','Microsoft JhengHei',system-ui,-apple-system,sans-serif}
 html,body{height:100%;background:var(--bg);color:var(--text)}
-#app{max-width:720px;margin:0 auto;height:100vh;display:flex;flex-direction:column}
+#app{max-width:720px;margin:0 auto;height:100vh;display:flex;flex-direction:column;box-shadow:0 0 30px rgba(0,0,0,.15)}
 
 /* login */
 .screen{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
@@ -33,32 +34,36 @@ input:focus{border-color:var(--accent)}
 /* chat */
 #chat{display:none;flex-direction:column;height:100vh}
 #chat.active{display:flex}
-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
-header .who{font-weight:600;font-size:15px}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--header);border-bottom:1px solid var(--line)}
+header .who{font-weight:700;font-size:16px}
 header .who small{display:block;color:var(--sub);font-weight:400;font-size:11px}
 header .acts{display:flex;gap:8px}
-.act{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:13px;cursor:pointer}
+.act{padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:#fff;color:var(--text);font-size:13px;cursor:pointer}
 .act.call{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-.messages{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
-.m{display:flex;gap:8px;max-width:78%}
-.m .av{width:32px;height:32px;border-radius:50%;flex:none;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.messages{flex:1;overflow-y:auto;padding:18px;background:var(--chatbg);display:flex;flex-direction:column;gap:12px}
+.m{display:flex;gap:8px;max-width:75%;align-items:flex-end}
+.m .av{width:36px;height:36px;border-radius:50%;flex:none;background:linear-gradient(135deg,#00b8d4,#06c755);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff}
 .m .col{flex:1}
-.m .meta{font-size:11px;color:var(--sub);margin-bottom:3px}
-.m .bub{background:var(--bubble1);padding:10px 13px;border-radius:4px 14px 14px 14px;font-size:14px;line-height:1.45;word-break:break-word}
+.m .meta{font-size:11px;color:#5a6068;margin-bottom:3px;font-weight:600}
+.m .bub{background:var(--bubble1);padding:10px 14px;border-radius:4px 16px 16px 16px;font-size:14px;line-height:1.45;word-break:break-word;box-shadow:0 1px 1px rgba(0,0,0,.08)}
 .m.me{align-self:flex-end;flex-direction:row-reverse}
-.m.me .bub{background:var(--bubble2);color:#fff;border-radius:14px 4px 14px 14px}
-.m.me .av{background:linear-gradient(135deg,var(--accent),#ff9a5c)}
-.m img{max-width:220px;max-height:220px;border-radius:12px;display:block}
-.m .time{font-size:10px;color:var(--sub);margin-top:4px;text-align:right}
-.composer{display:flex;gap:8px;padding:12px 14px;background:var(--panel);border-top:1px solid var(--line);position:relative}
-.composer input[type=text]{flex:1;margin:0;background:var(--panel2);padding:11px 14px;border-radius:99px;border:1px solid var(--line);font-size:14px;color:var(--text)}
-.send,.sticker{width:44px;height:44px;flex:none;border-radius:50%;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.m.me .bub{background:var(--bubble2);color:#111;border-radius:16px 4px 16px 16px}
+.m.me .av{background:linear-gradient(135deg,#ffd54f,#ff9800)}
+.m img{max-width:230px;max-height:230px;border-radius:12px;display:block}
+.m .time{font-size:10px;color:#4a5058;margin-top:4px}
+.m.me .time{text-align:right}
+.composer{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--line);position:relative;align-items:center}
+.composer input[type=text]{flex:1;margin:0;background:var(--panel2);padding:11px 14px;border-radius:20px;border:1px solid var(--line);font-size:14px;color:var(--text)}
+.send,.sticker{width:42px;height:42px;flex:none;border-radius:50%;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
 .sticker{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
 .send{background:var(--accent);color:#fff}
-.sticker-pad{position:absolute;bottom:64px;right:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:none;gap:8px;flex-wrap:wrap;width:220px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.sticker-pad{position:absolute;bottom:60px;right:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;display:none;gap:8px;flex-wrap:wrap;width:240px;box-shadow:0 8px 24px rgba(0,0,0,.2);max-height:260px;overflow-y:auto}
 .sticker-pad.open{display:flex}
 .sticker-pad .st{font-size:30px;cursor:pointer;padding:2px;border-radius:8px;transition:transform .1s}
-.sticker-pad .st:hover{transform:scale(1.25);background:var(--panel2)}
+.sticker-pad .st:hover{transform:scale(1.2);background:var(--panel2)}
+.sticker-pad img{width:56px;height:56px;object-fit:contain;cursor:pointer;border-radius:8px}
+.sticker-pad img:hover{background:var(--panel2)}
+.sticker-pad .addst{width:56px;height:56px;border-radius:8px;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;color:var(--sub)}
 
 /* call overlay */
 #call{position:fixed;inset:0;background:rgba(15,17,23,.97);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:50;padding:24px}
@@ -124,6 +129,9 @@ header .acts{display:flex;gap:8px}
     <div class="st" data-s="❤️">❤️</div><div class="st" data-s="😘">😘</div><div class="st" data-s="🥰">🥰</div>
     <div class="st" data-s="😭">😭</div><div class="st" data-s="😂">😂</div><div class="st" data-s="🌹">🌹</div>
     <div class="st" data-s="🔥">🔥</div><div class="st" data-s="👑">👑</div><div class="st" data-s="🌙">🌙</div><div class="st" data-s="☀️">☀️</div>
+    <div class="addst" id="addStickerBtn" title="上傳自訂貼圖">＋</div>
+    <input type="file" id="stickerFile" accept="image/*" hidden>
+    <div id="customStickers" style="display:flex;gap:8px;flex-wrap:wrap;width:100%"></div>
   </div>
   <div class="composer">
     <button class="sticker" id="stickerBtn" title="貼圖">😀</button>
@@ -139,6 +147,14 @@ header .acts{display:flex;gap:8px}
     <h1 style="font-size:18px">⚙ 設定</h1>
     <div class="row" style="margin-top:18px">
       <label>目前帳號</label><span id="sEmail" style="font-size:13px"></span>
+    </div>
+    <label style="font-size:12px;color:var(--sub)">聊天背景</label>
+    <div id="bgPicker" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <div data-bg="#8fce8f" style="width:44px;height:44px;border-radius:10px;background:#8fce8f;cursor:pointer;border:2px solid #06c755"></div>
+      <div data-bg="#ffe0ec" style="width:44px;height:44px;border-radius:10px;background:#ffe0ec;cursor:pointer"></div>
+      <div data-bg="#d6ecff" style="width:44px;height:44px;border-radius:10px;background:#d6ecff;cursor:pointer"></div>
+      <div data-bg="#fff6d6" style="width:44px;height:44px;border-radius:10px;background:#fff6d6;cursor:pointer"></div>
+      <div data-bg="#2b2b3d" style="width:44px;height:44px;border-radius:10px;background:#2b2b3d;cursor:pointer"></div>
     </div>
     <label style="font-size:12px;color:var(--sub)">變更密碼</label>
     <input type="password" id="oldPass" placeholder="舊密碼">
@@ -245,6 +261,8 @@ async function enterChat(){
   $("sEmail").textContent=email;
   await loadHistory();
   subscribe();
+  loadCustomStickers();
+  applyBg();
 }
 
 /* ---------- 歷史訊息 ---------- */
@@ -316,6 +334,45 @@ document.querySelectorAll(".sticker-pad .st").forEach(el=>{
     await sb.from("messages").insert({username:me,content:el.dataset.s,message_type:"sticker"});
     $("stickerPad").classList.remove("open");
   };
+});
+
+/* ---------- 自訂貼圖 ---------- */
+function loadCustomStickers(){
+  const list = JSON.parse(localStorage.getItem("customStickers")||"[]");
+  const box=$("customStickers"); box.innerHTML="";
+  list.forEach(url=>{
+    const im=document.createElement("img"); im.src=url; im.title="點擊發送";
+    im.onclick=async ()=>{
+      renderMsg({username:me, message_type:"image", image_url:url, content:"", created_at:new Date().toISOString()}, $("messages"));
+      await sb.from("messages").insert({username:me,content:"",message_type:"image",image_url:url});
+      $("stickerPad").classList.remove("open");
+    };
+    box.appendChild(im);
+  });
+}
+$("addStickerBtn").onclick=()=>$("stickerFile").click();
+$("stickerFile").onchange=async e=>{
+  const file=e.target.files[0];if(!file)return;
+  const path=`stickers/${me}-${Date.now()}-${file.name}`;
+  const {error:ue}=await sb.storage.from("stickers").upload(path,file);
+  if(ue){alert("上傳失敗:"+ue.message);return;}
+  const {data:{publicUrl}}=sb.storage.from("stickers").getPublicUrl(path);
+  const list=JSON.parse(localStorage.getItem("customStickers")||"[]");
+  list.push(publicUrl); localStorage.setItem("customStickers",JSON.stringify(list));
+  loadCustomStickers();
+  e.target.value="";
+};
+
+/* ---------- 聊天背景 ---------- */
+function applyBg(){
+  const bg = localStorage.getItem("chatBg")||"#8fce8f";
+  document.documentElement.style.setProperty("--chatbg", bg);
+  document.querySelectorAll("#bgPicker > div").forEach(d=>{
+    d.style.border = d.dataset.bg===bg ? "2px solid #06c755" : "2px solid transparent";
+  });
+}
+document.querySelectorAll("#bgPicker > div").forEach(d=>{
+  d.onclick=()=>{ localStorage.setItem("chatBg", d.dataset.bg); applyBg(); };
 });
 
 /* ---------- 圖片上傳到 Storage ---------- */
