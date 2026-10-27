@@ -156,6 +156,16 @@ header .acts{display:flex;gap:8px}
       <div data-bg="#fff6d6" style="width:44px;height:44px;border-radius:10px;background:#fff6d6;cursor:pointer"></div>
       <div data-bg="#2b2b3d" style="width:44px;height:44px;border-radius:10px;background:#2b2b3d;cursor:pointer"></div>
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="act" id="bgImgBtn">🖼 上傳背景圖</button>
+      <button class="act" id="resetBgBtn">↺ 還原背景</button>
+    </div>
+    <input type="file" id="bgImgFile" accept="image/*" hidden>
+    <div class="row">
+      <label>聊天室 LOGO</label>
+      <button class="act" id="logoBtn">📷 上傳</button>
+    </div>
+    <input type="file" id="logoFile" accept="image/*" hidden>
     <label style="font-size:12px;color:var(--sub)">變更密碼</label>
     <input type="password" id="oldPass" placeholder="舊密碼">
     <input type="password" id="newPass" placeholder="新密碼(至少 8 碼)">
@@ -218,6 +228,7 @@ function userColor(name){ // 簡單配色
 
 
 /* ---------- 啟動:若已有工作階段則自動進聊天室 ---------- */
+applyLogo();
 (async ()=>{
   const { data: { session } } = await sb.auth.getSession();
   if(session){
@@ -353,7 +364,8 @@ function loadCustomStickers(){
 $("addStickerBtn").onclick=()=>$("stickerFile").click();
 $("stickerFile").onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
-  const path=`stickers/${me}-${Date.now()}-${file.name}`;
+  const ext=(file.name.split(".").pop()||"png").toLowerCase().replace(/[^a-z0-9]/g,"");
+  const path=`stickers/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
   const {error:ue}=await sb.storage.from("stickers").upload(path,file);
   if(ue){alert("上傳失敗:"+ue.message);return;}
   const {data:{publicUrl}}=sb.storage.from("stickers").getPublicUrl(path);
@@ -365,21 +377,52 @@ $("stickerFile").onchange=async e=>{
 
 /* ---------- 聊天背景 ---------- */
 function applyBg(){
-  const bg = localStorage.getItem("chatBg")||"#8fce8f";
-  document.documentElement.style.setProperty("--chatbg", bg);
+  const imgBg = localStorage.getItem("chatBgImg");
+  if(imgBg){
+    document.querySelector(".messages").style.background = `url(${imgBg}) center/cover fixed`;
+  } else {
+    const bg = localStorage.getItem("chatBg")||"#8fce8f";
+    document.querySelector(".messages").style.background = bg;
+  }
   document.querySelectorAll("#bgPicker > div").forEach(d=>{
-    d.style.border = d.dataset.bg===bg ? "2px solid #06c755" : "2px solid transparent";
+    d.style.border = (!imgBg && d.dataset.bg===(localStorage.getItem("chatBg")||"#8fce8f")) ? "2px solid #06c755" : "2px solid transparent";
   });
 }
 document.querySelectorAll("#bgPicker > div").forEach(d=>{
-  d.onclick=()=>{ localStorage.setItem("chatBg", d.dataset.bg); applyBg(); };
+  d.onclick=()=>{ localStorage.removeItem("chatBgImg"); localStorage.setItem("chatBg", d.dataset.bg); applyBg(); };
 });
+$("bgImgBtn").onclick=()=>$("bgImgFile").click();
+$("bgImgFile").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ localStorage.setItem("chatBgImg", r.result); applyBg(); };
+  r.readAsDataURL(f);
+  e.target.value="";
+};
+$("resetBgBtn").onclick=()=>{ localStorage.removeItem("chatBgImg"); localStorage.removeItem("chatBg"); applyBg(); };
+
+/* ---------- 自訂 LOGO ---------- */
+function applyLogo(){
+  const logo=localStorage.getItem("logoImg");
+  if(logo){
+    document.querySelector(".screen.active .logo").innerHTML=`<img src="${logo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover">`;
+  }
+}
+$("logoBtn").onclick=()=>$("logoFile").click();
+$("logoFile").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ localStorage.setItem("logoImg", r.result); applyLogo(); };
+  r.readAsDataURL(f);
+  e.target.value="";
+};
 
 /* ---------- 圖片上傳到 Storage ---------- */
 $("imgLabel").onclick=async ()=>{const f=$("imgFile");f.onchange=null;f.click()};
 $("imgFile").onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
-  const path=`stickers/${me}-${Date.now()}-${file.name}`;
+  const ext=(file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+  const path=`stickers/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
   const {error:ue}=await sb.storage.from("stickers").upload(path,file);
   if(ue){alert("上傳失敗:"+ue.message);return;}
   const {data:{publicUrl}}=sb.storage.from("stickers").getPublicUrl(path);
