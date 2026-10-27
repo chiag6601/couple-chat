@@ -73,6 +73,14 @@ header .acts{display:flex;gap:8px}
 .cb.mic{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
 .cb.mic.off{color:var(--err)}
 .cb.end{background:var(--err);color:#fff}
+.cb.ok{background:#22c55e;color:#fff}
+#incomingCall{position:fixed;inset:0;background:rgba(15,17,23,.9);display:none;align-items:center;justify-content:center;z-index:60}
+#incomingCall.active{display:flex}
+#incomingCall .inc-box{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:32px;display:flex;flex-direction:column;align-items:center;gap:10px}
+#incomingCall .inc-av{font-size:56px;animation:ring 1s infinite}
+@keyframes ring{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+#incomingCall .inc-title{font-size:20px;font-weight:700}
+#incomingCall .inc-sub{color:var(--sub);font-size:13px;margin-bottom:14px}
 
 /* settings */
 #settings .row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
@@ -148,6 +156,18 @@ header .acts{display:flex;gap:8px}
   <div class="callbtns">
     <button class="cb mic" id="micBtn">🎙</button>
     <button class="cb end" id="endCallBtn">✕</button>
+  </div>
+</div>
+
+<div id="incomingCall">
+  <div class="inc-box">
+    <div class="inc-av">📞</div>
+    <div class="inc-title" id="incTitle">來電…</div>
+    <div class="inc-sub" id="incSub">有人打給你</div>
+    <div class="callbtns">
+      <button class="cb ok" id="acceptBtn">✅ 接聽</button>
+      <button class="cb end" id="rejectBtn">✕ 拒絕</button>
+    </div>
   </div>
 </div>
 
@@ -259,6 +279,16 @@ function subscribe(){
       (payload)=>{
         const m = payload.new;
         if(m.username === me) return;
+        if(m.message_type === 'call_signal'){
+          if(m.content === 'ring') showIncoming(m.username);
+          else if(m.content === 'hangup' || m.content === 'reject'){
+            $('incomingCall').classList.remove('active');
+            livekitRoom?.disconnect(); livekitRoom=null;
+            $('call').classList.remove('active');
+            $('peerVideo').innerHTML='<div class="initials">💞</div>';
+          }
+          return;
+        }
         renderMsg(m, $('messages'));
       })
     .subscribe((status)=>{ console.log('[realtime]', status); });
@@ -299,48 +329,58 @@ $("imgFile").onchange=async e=>{
 };
 
 /* ---------- LiveKit 通話 ---------- */
-// 通話流程:
-// 1. 前端调 Supabase Edge Function "livekit-token" 拿 JWT
-// 2. 用 JWT 连 LiveKit
-// 3. 双方同房间名(couple-chat)互通
+async function connectCall(){
+  $("call").classList.add("active");
+  $("callStatus").textContent="簽發通話憑證中…";$("callSpin").style.display="";
+  const {data,error}=await sb.functions.invoke("livekit-token",{});
+  if(error||!data)throw new Error("livekit-token Edge Function 未部署: "+(error?.message||""));
+  const {token,url}=data;
+  livekitRoom=new LiveKitRoom();
+  livekitRoom.on(RoomEvent.ParticipantConnected,p=>{
+    $("callStatus").textContent="通話中 "+p.identity;
+    p.videoTracks.forEach(t=>attachTrack(t));
+    p.audioTracks.forEach(t=>attachTrack(t));
+  });
+  livekitRoom.on(RoomEvent.TrackSubscribed,(track,_p)=>attachTrack(track));
+  livekitRoom.on(RoomEvent.Disconnected,()=>{
+    $("callStatus").textContent="已掛斷";
+    setTimeout(()=>$("call").classList.remove("active"),1500);
+  });
+  await livekitRoom.connect(url||LIVEKIT_URL,token,{audio:true,video:true});
+  try{
+    const pub=await LiveKitRoom.createLocalAudioTrack({source:"microphone"});
+    await livekitRoom.localParticipant.publishTrack(pub);
+  }catch(e){console.warn("麥克風未授權",e);}
+  try{
+    const vpub=await LiveKitRoom.createLocalVideoTrack({source:"camera"});
+    await livekitRoom.localParticipant.publishTrack(vpub);
+  }catch(e){console.warn("鏡頭未授權",e);}
+  $("callSpin").style.display="none";
+  $("callStatus").textContent="通話中";
+}
+// 主叫:發打鈴信號再進房間
 $("callBtn").onclick=async ()=>{
   try{
-    $("call").classList.add("active");
-    $("callStatus").textContent="簽發通話凭证中…";$("callSpin").style.display="";
-    const {data,error}=await sb.functions.invoke("livekit-token",{});
-    if(error||!data)throw new Error("livekit-token Edge Function 未部署或失败: "+(error?.message||""));
-    const {token,url}=data;
-    livekitRoom=new LiveKitRoom();
-    livekitRoom.on(RoomEvent.ParticipantConnected,p=>{
-      $("callStatus").textContent="通話中 "+p.identity;
-      p.videoTracks.forEach(t=>attachTrack(t));
-      p.audioTracks.forEach(t=>attachTrack(t));
-    });
-    livekitRoom.on(RoomEvent.TrackSubscribed,(track,_,p)=>attachTrack(track,p));
-    livekitRoom.on(RoomEvent.Disconnected,()=>{
-      $("callStatus").textContent="已掛斷";
-      setTimeout(()=>$("call").classList.remove("active"),1500);
-    });
-    await livekitRoom.connect(url||LIVEKIT_URL,token,{audio:true,video:true});
-    // 本地视频/麦克风推流(若用户有摄像头)
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:true});
-      await livekitRoom.localParticipant?.trackPublications?.length
-        ? null
-        : (async()=>{
-            const pub=await livekitRoom.createLocalAudioTrack({source:"microphone"});
-            const vpub=await livekitRoom.createLocalVideoTrack({source:"camera"});
-            await livekitRoom.localParticipant.publishTrack(pub);
-            await livekitRoom.localParticipant.publishTrack(vpub);
-            // 本地预览(自己的视频放角落)——简化不显示
-          })();
-    }catch(e){console.warn("麦克/摄像头未授权",e);}
-    $("callSpin").style.display="none";
-    $("callStatus").textContent="通話中";
+    await sb.from("messages").insert({username:me,content:"ring",message_type:"call_signal"});
+    await connectCall();
   }catch(e){
     $("callStatus").textContent="❌ "+e.message;
     setTimeout(()=>$("call").classList.remove("active"),3000);
   }
+};
+// 來電彈窗
+function showIncoming(from){
+  $("incTitle").textContent="來電…";
+  $("incSub").textContent=(from||"對方")+" 打給你";
+  $("incomingCall").classList.add("active");
+}
+$("acceptBtn").onclick=async ()=>{
+  $("incomingCall").classList.remove("active");
+  try{ await connectCall(); }catch(e){ alert(e.message); }
+};
+$("rejectBtn").onclick=async ()=>{
+  $("incomingCall").classList.remove("active");
+  await sb.from("messages").insert({username:me,content:"reject",message_type:"call_signal"});
 };
 function attachTrack(track,publisher){
   const pv=$("peerVideo");
@@ -356,7 +396,13 @@ $("micBtn").onclick=()=>{
   livekitRoom?.localParticipant?.setMicrophoneEnabled(!muted);
   $("micBtn").classList.toggle("off",muted);
 };
-$("endCallBtn").onclick=()=>{livekitRoom?.disconnect();livekitRoom=null;$("call").classList.remove("active");$("peerVideo").innerHTML='<div class="initials">💞</div>'};
+$("endCallBtn").onclick=async ()=>{
+  try{ await sb.from("messages").insert({username:me,content:"hangup",message_type:"call_signal"}); }catch(_){}
+  livekitRoom?.disconnect();livekitRoom=null;
+  $("call").classList.remove("active");
+  $("incomingCall").classList.remove("active");
+  $("peerVideo").innerHTML='<div class="initials">💞</div>';
+};
 
 /* ---------- 改密碼 ---------- */
 $("changePassBtn").onclick=async ()=>{
