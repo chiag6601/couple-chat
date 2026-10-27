@@ -13,7 +13,17 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI','Microsoft JhengHei',system-ui,-apple-system,sans-serif}
 html,body{height:100%;background:var(--bg);color:var(--text)}
-#app{max-width:720px;margin:0 auto;height:100vh;display:flex;flex-direction:column;box-shadow:0 0 30px rgba(0,0,0,.15)}
+#app{max-width:720px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;box-shadow:0 0 30px rgba(0,0,0,.15)}
+@media(max-width:600px){
+  #app{max-width:100%;box-shadow:none}
+  .m{max-width:82%}
+  header{padding:10px 12px}
+  header .who{font-size:14px}
+  .composer{padding:8px}
+  #localPreview{width:90px;height:120px;bottom:110px}
+  #settings .card{max-width:100%}
+  .callbtns{gap:14px}
+}
 
 /* login */
 .screen{flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
@@ -153,7 +163,7 @@ header .acts{display:flex;gap:8px}
 <!-- ============ SETTINGS (modal) ============ -->
 <div id="settings">
   <div class="card">
-    <h1 style="font-size:18px">⚙ 設定 <button class="act" id="backBtn" style="float:right;padding:4px 12px">✕</button></h1>
+    <h1 style="font-size:18px;display:flex;justify-content:space-between;align-items:center">⚙ 設定 <button class="act" id="backBtn" style="padding:4px 12px;font-size:16px">✕</button></h1>
     <div class="row" style="margin-top:18px">
       <label>目前帳號</label><span id="sEmail" style="font-size:13px"></span>
     </div>
@@ -180,6 +190,11 @@ header .acts{display:flex;gap:8px}
       <button class="act" id="logoBtn">📷 上傳</button>
     </div>
     <input type="file" id="logoFile" accept="image/*" hidden>
+    <div class="row">
+      <label>我的大頭貼(聊天顯示)</label>
+      <button class="act" id="avatarBtn">📷 上傳</button>
+    </div>
+    <input type="file" id="avatarFile" accept="image/*" hidden>
     <label style="font-size:12px;color:var(--sub)">變更密碼</label>
     <input type="password" id="oldPass" placeholder="舊密碼">
     <input type="password" id="newPass" placeholder="新密碼(至少 8 碼)">
@@ -308,7 +323,10 @@ function renderMsg(m,box,scroll=true){
   const d=document.createElement("div");
   const isMe=(m.username===me);
   d.className="m"+(isMe?" me":"");
-  const av=document.createElement("div");av.className="av";av.textContent=m.username?.[0]?.toUpperCase()||"?";
+  const av=document.createElement("div");av.className="av";
+  const myAv=localStorage.getItem("avatarImg");
+  if(isMe&&myAv){ av.innerHTML=`<img src="${myAv}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`; }
+  else av.textContent=m.username?.[0]?.toUpperCase()||"?";
   const col=document.createElement("div");col.className="col";
   const meta=document.createElement("div");meta.className="meta";
   meta.textContent=m.username+(isMe?" (你)":"");
@@ -437,6 +455,14 @@ $("logoFile").onchange=e=>{
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();
   r.onload=()=>{ localStorage.setItem("logoImg", r.result); applyLogo(); };
+  r.readAsDataURL(f);
+  e.target.value="";
+};
+$("avatarBtn").onclick=()=>$("avatarFile").click();
+$("avatarFile").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ localStorage.setItem("avatarImg", r.result); alert("大頭貼已更新,新訊息會套用"); };
   r.readAsDataURL(f);
   e.target.value="";
 };
