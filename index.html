@@ -320,6 +320,9 @@ async function enterChat(){
   subscribe();
   loadCustomStickers();
   subscribeProfiles();
+  // 標題下方顯示對方暱稱
+  const partner = Object.values(profilesCache).find(r=>r.username!==me);
+  $("youName").textContent = partner?.nickname ? "@"+partner.nickname : ("@"+email.split("@")[0]);
 }
 
 /* ---------- 歷史訊息 ---------- */
@@ -468,6 +471,8 @@ function subscribeProfiles(){
   if(profSub) profSub.unsubscribe();
   profSub=sb.channel("profiles-"+me).on("postgres_changes",{event:"*",schema:"public",table:"profiles"},async ()=>{
     await loadProfiles();
+    const partner = Object.values(profilesCache).find(r=>r.username!==me);
+    if(partner?.nickname) $("youName").textContent="@"+partner.nickname;
     // 重繪既有訊息以更新暱稱/頭像
     const {data}=await sb.from("messages").select("*").order("created_at",{ascending:true});
     $("messages").innerHTML="";
