@@ -249,7 +249,7 @@ async function loadHistory(){
   const box=$("messages");box.innerHTML="";
   const {data,error}=await sb.from("messages").select("*").order("created_at",{ascending:true}).limit(200);
   if(error){console.error(error);return;}
-  data.forEach(m=>renderMsg(m,box,false));
+  data.forEach(m=>{ if(m.message_type!=="call_signal") renderMsg(m,box,false); });
   box.scrollTop=box.scrollHeight;
 }
 function renderMsg(m,box,scroll=true){
@@ -329,6 +329,11 @@ $("imgFile").onchange=async e=>{
 };
 
 /* ---------- LiveKit 通話 ---------- */
+function attachParticipant(participant){
+  participant.trackPublications.forEach(pub=>{
+    if(pub.subscribed && pub.track) attachTrack(pub.track);
+  });
+}
 async function connectCall(){
   $("call").classList.add("active");
   $("callStatus").textContent="簽發通話憑證中…";$("callSpin").style.display="";
@@ -337,24 +342,24 @@ async function connectCall(){
   const {token,url}=data;
   livekitRoom=new LiveKitRoom();
   livekitRoom.on(RoomEvent.ParticipantConnected,p=>{
-    $("callStatus").textContent="通話中 "+p.identity;
-    p.videoTracks.forEach(t=>attachTrack(t));
-    p.audioTracks.forEach(t=>attachTrack(t));
+    $("callStatus").textContent="通話中";
+    attachParticipant(p);
   });
   livekitRoom.on(RoomEvent.TrackSubscribed,(track,_p)=>attachTrack(track));
+  livekitRoom.on(RoomEvent.ParticipantDisconnected,()=>{
+    $("peerVideo").innerHTML='<div class="initials">💔</div>';
+    $("callStatus").textContent="對方已離開";
+  });
   livekitRoom.on(RoomEvent.Disconnected,()=>{
     $("callStatus").textContent="已掛斷";
     setTimeout(()=>$("call").classList.remove("active"),1500);
   });
   await livekitRoom.connect(url||LIVEKIT_URL,token,{audio:true,video:true});
-  try{
-    const pub=await LiveKitRoom.createLocalAudioTrack({source:"microphone"});
-    await livekitRoom.localParticipant.publishTrack(pub);
-  }catch(e){console.warn("麥克風未授權",e);}
-  try{
-    const vpub=await LiveKitRoom.createLocalVideoTrack({source:"camera"});
-    await livekitRoom.localParticipant.publishTrack(vpub);
-  }catch(e){console.warn("鏡頭未授權",e);}
+  // 掛上已在房間內的對方(接聽方加入時主叫方早已在場)
+  livekitRoom.participants.forEach(attachParticipant);
+  // 開麥克風與鏡頭
+  try{ await livekitRoom.localParticipant.setMicrophoneEnabled(true); }catch(e){console.warn("麥克風未授權",e);}
+  try{ await livekitRoom.localParticipant.setCameraEnabled(true); }catch(e){console.warn("鏡頭未授權",e);}
   $("callSpin").style.display="none";
   $("callStatus").textContent="通話中";
 }
