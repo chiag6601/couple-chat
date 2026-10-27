@@ -142,7 +142,7 @@ header .acts{display:flex;gap:8px}
 <!-- ============ CHAT ============ -->
 <div id="chat">
   <header>
-    <div class="who"><span id="headerLogo" style="display:inline-flex;vertical-align:middle;margin-right:6px"></span><span id="headerTitle">💞 Our Space</span><small id="youName">…</small></div>
+    <div class="who"><span id="headerLogo" style="display:inline-flex;vertical-align:middle;margin-right:6px"></span><span id="headerTitle">💞 Our Space</span></div>
     <div class="acts">
       <button class="act call" id="callBtn">📞 通話</button>
       <button class="act" id="settingsBtn">⚙</button>
@@ -313,16 +313,12 @@ async function enterChat(){
   $("chat").classList.add("active");
   const email = $("email").value.trim() || (me && me.email) || "";
   me = email;                       // 比對用的帳號字串
-  $("youName").textContent="@"+email.split("@")[0];
   $("sEmail").textContent=email;
   await loadProfiles();
   await loadHistory();
   subscribe();
   loadCustomStickers();
   subscribeProfiles();
-  // 標題下方顯示對方暱稱
-  const partner = Object.values(profilesCache).find(r=>r.username!==me);
-  $("youName").textContent = partner?.nickname ? "@"+partner.nickname : ("@"+email.split("@")[0]);
 }
 
 /* ---------- 歷史訊息 ---------- */
@@ -449,16 +445,17 @@ async function saveProfile(patch){
 function applyRoomSettings(){
   const rows=Object.values(profilesCache);
   if(!rows.length) return;
-  // room-level: newest updated row wins
+  // 每個房間層級欄位,取「有設定值」的最新一列(不被對方空值蓋掉)
   rows.sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));
-  const room=rows[0];
-  if(room.room_title) $("headerTitle").textContent="💞 "+room.room_title;
+  const pick = f => { for(const r of rows){ if(r[f]) return r[f]; } return null; };
+  const title=pick("room_title"); if(title) $("headerTitle").textContent="💞 "+title;
+  const logo=pick("logo_url");
   const hl=$("headerLogo");
-  if(hl) hl.innerHTML = room.logo_url ? `<img src="${room.logo_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle">` : "";
+  if(hl) hl.innerHTML = logo ? `<img src="${logo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle">` : "";
   const lgn=document.querySelector("#login .logo");
-  if(lgn) lgn.innerHTML = room.logo_url ? `<img src="${room.logo_url}" style="width:72px;height:72px;border-radius:50%;object-fit:cover">` : "💞";
-  const msgs=document.querySelector(".messages");
-  if(room.background_url) msgs.style.background=`url("${room.background_url}") center/cover no-repeat`;
+  if(lgn) lgn.innerHTML = logo ? `<img src="${logo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover">` : "💞";
+  const bg=pick("background_url");
+  if(bg) document.querySelector(".messages").style.background=`url("${bg}") center/cover no-repeat`;
 }
 async function loadProfiles(){
   const {data}=await sb.from("profiles").select("*");
@@ -471,8 +468,6 @@ function subscribeProfiles(){
   if(profSub) profSub.unsubscribe();
   profSub=sb.channel("profiles-"+me).on("postgres_changes",{event:"*",schema:"public",table:"profiles"},async ()=>{
     await loadProfiles();
-    const partner = Object.values(profilesCache).find(r=>r.username!==me);
-    if(partner?.nickname) $("youName").textContent="@"+partner.nickname;
     // 重繪既有訊息以更新暱稱/頭像
     const {data}=await sb.from("messages").select("*").order("created_at",{ascending:true});
     $("messages").innerHTML="";
