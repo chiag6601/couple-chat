@@ -165,8 +165,6 @@ const LIVEKIT_ROOM  = "couple-chat";                        // 房間名(兩端�
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Room as LiveKitRoom, RoomEvent, Track } from "https://esm.sh/livekit-client@2";
 
-document.title = "RAN";
-
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = id => document.getElementById(id);
 let me = null, livekitRoom = null, sub = null, muted = false;
@@ -180,7 +178,6 @@ function userColor(name){ // 簡單配色
 }
 
 /* ---------- 登入 ---------- */
-document.title="RAN2";
 $("loginBtn").onclick = async ()=>{
   let email=$("email").value.trim(), pass=$("password").value;
   if(!email||!pass)return;
@@ -194,7 +191,6 @@ $("loginBtn").onclick = async ()=>{
   me=data.user;
   enterChat();
 };
-document.title="RAN3";
 $("password").onkeydown=e=>{if(e.key==="Enter")$("loginBtn").click()};
 // 输入账号后自动补全常见邮箱后缀(方便情侣输入纯账号名)
 $("email").addEventListener("blur",()=>{
