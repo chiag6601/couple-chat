@@ -313,7 +313,7 @@ async function enterChat(){
   $("login").classList.remove("active");
   $("chat").classList.add("active");
   const email = $("email").value.trim() || (me && me.email) || "";
-  me = email;                       // 比對用的帳號字串
+  me = email.split("@")[0];            // 統一比對用短帳號
   $("sEmail").textContent=email;
   await loadProfiles();
   await loadHistory();
@@ -333,12 +333,13 @@ async function loadHistory(){
   box.scrollTop=box.scrollHeight;
 }
 const seenIds=new Set();
+function shortName(s){ return (s||"").split("@")[0]; }
 function renderMsg(m,box,scroll=true){
   if(m.id){ if(seenIds.has(m.id)) return; seenIds.add(m.id); }
   const d=document.createElement("div");
-  const isMe=(m.username===me);
+  const isMe=shortName(m.username)===shortName(me);
   d.className="m"+(isMe?" me":"");
-  const p=profilesCache[m.username]||{};
+  const p=profilesCache[shortName(m.username)]||profilesCache[m.username]||{};
   const displayName=p.nickname||m.username;
   const av=document.createElement("div");av.className="av";
   if(p.avatar_url){ av.innerHTML=`<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`; }
